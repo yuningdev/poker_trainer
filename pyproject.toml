@@ -1,0 +1,22 @@
+[project]
+name = "poker-trainer"
+version = "0.1.0"
+description = "Texas Hold'em terminal game with AI opponents"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "rich>=13.0",
+]
+
+[project.scripts]
+poker = "poker_trainer.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
