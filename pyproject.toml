@@ -11,6 +11,9 @@ dependencies = [
 [project.scripts]
 poker = "poker_trainer.__main__:main"
 
+[tool.uv]
+python-preference = "managed"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
