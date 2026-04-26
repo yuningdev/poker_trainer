@@ -1,8 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { useGameStore } from './store/gameStore'
 import { usePokerSocket } from './hooks/usePokerSocket'
+import { useHistoryStore } from './store/historyStore'
 import GameTable from './components/GameTable'
 import ActionPanel from './components/ActionPanel'
+import HandResultOverlay from './components/HandResultOverlay'
+import HistoryView from './components/HistoryView'
 
 const DEFAULT_CONFIG = {
   human_name: 'You',
@@ -18,14 +21,44 @@ const DEFAULT_CONFIG = {
 
 export default function App() {
   const { startGame, sendAction } = usePokerSocket()
-  const { connected, started } = useGameStore()
+  const { connected, started, gameOver, log, handNum } = useGameStore()
+  const addRecord = useHistoryStore((s) => s.addRecord)
+  const [showHistory, setShowHistory] = useState(false)
+  const autoStarted = useRef(false)
 
-  // Auto-start once connected
+  // Auto-start exactly once when WebSocket first connects
   useEffect(() => {
-    if (connected && !started) {
+    if (connected && !autoStarted.current) {
+      autoStarted.current = true
       startGame(DEFAULT_CONFIG)
     }
-  }, [connected, started, startGame])
+  }, [connected, startGame])
+
+  // Auto-save game record when game ends
+  useEffect(() => {
+    if (gameOver) {
+      addRecord({
+        date: new Date().toISOString(),
+        winner: gameOver.winner,
+        winnerChips: gameOver.chips,
+        handsPlayed: handNum,
+        log: [...log],
+      })
+    }
+  }, [gameOver]) // intentionally only track gameOver changes
+
+  const handlePlayAgain = useCallback(() => {
+    startGame(DEFAULT_CONFIG)
+  }, [startGame])
+
+  const handleViewHistory = useCallback(() => {
+    setShowHistory(true)
+  }, [])
+
+  const handleNewGame = useCallback(() => {
+    setShowHistory(false)
+    startGame(DEFAULT_CONFIG)
+  }, [startGame])
 
   if (!connected) {
     return (
@@ -35,6 +68,15 @@ export default function App() {
           <p className="text-gray-400">Connecting to server…</p>
         </div>
       </div>
+    )
+  }
+
+  if (showHistory) {
+    return (
+      <HistoryView
+        onBack={() => setShowHistory(false)}
+        onNewGame={handleNewGame}
+      />
     )
   }
 
@@ -50,6 +92,14 @@ export default function App() {
     <>
       <GameTable onAction={sendAction} />
       <ActionPanel onAction={sendAction} />
+      <HandResultOverlay onPlayAgain={handlePlayAgain} onViewHistory={handleViewHistory} />
+      {/* History button — top-right corner */}
+      <button
+        onClick={() => setShowHistory(true)}
+        className="fixed top-3 right-3 z-30 px-3 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition border border-gray-700"
+      >
+        History
+      </button>
     </>
   )
 }

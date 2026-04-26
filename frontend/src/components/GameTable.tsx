@@ -4,7 +4,6 @@ import CommunityCards from './CommunityCards'
 import PlayerSeat from './PlayerSeat'
 import PotDisplay from './PotDisplay'
 import ActionLog from './ActionLog'
-import HandResultOverlay from './HandResultOverlay'
 import type { ActionType } from '../types'
 
 interface Props {
@@ -82,8 +81,6 @@ export default function GameTable({ onAction: _onAction }: Props) {
   return (
     <DealProvider dealerName={dealerName}>
       <div className="min-h-screen bg-gray-950 text-white flex flex-col">
-        <HandResultOverlay />
-
         <div className="flex flex-1 gap-0">
           {/* ── Main table area ── */}
           <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6 pb-24">

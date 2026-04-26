@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { useGameStore } from '../store/gameStore'
 
-export default function HumanBustOverlay() {
+interface Props {
+  onPlayAgain: () => void
+}
+
+export default function HumanBustOverlay({ onPlayAgain }: Props) {
   const { humanBust, gameOver } = useGameStore()
   const [dismissed, setDismissed] = useState(false)
 
@@ -17,7 +21,7 @@ export default function HumanBustOverlay() {
         <p className="text-gray-400 text-sm mb-6">The remaining players are still competing.</p>
         <div className="flex flex-col gap-3">
           <button
-            onClick={() => window.location.reload()}
+            onClick={onPlayAgain}
             className="px-6 py-2.5 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-xl transition"
           >
             Play Again

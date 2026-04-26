@@ -55,27 +55,40 @@ class GameSession:
     # ── Public ───────────────────────────────────────────────────────────────
 
     async def run(self) -> None:
-        """Entry point called by the WebSocket endpoint."""
+        """Entry point called by the WebSocket endpoint. Loops to support multiple games."""
         loop = asyncio.get_running_loop()
 
-        config = await self._wait_for_start()
-        if config is None:
-            return
+        while not self._cancelled:
+            config = await self._wait_for_start()
+            if config is None:
+                return
 
-        game = self._build_game(config, loop)
+            # Reset per-game state so old events don't leak into the new game.
+            self._event_queue = asyncio.Queue()
 
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        game_future = loop.run_in_executor(executor, game.run)
+            game = self._build_game(config, loop)
+            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+            game_future = loop.run_in_executor(executor, game.run)
 
-        sender   = asyncio.create_task(self._pump_events())
-        receiver = asyncio.create_task(self._receive_actions())
+            sender   = asyncio.create_task(self._pump_events())
+            receiver = asyncio.create_task(self._receive_actions())
 
-        try:
-            await asyncio.gather(game_future, return_exceptions=True)
-        finally:
-            sender.cancel()
-            receiver.cancel()
-            executor.shutdown(wait=False)
+            try:
+                await asyncio.gather(game_future, return_exceptions=True)
+                # Yield to the event loop so any run_coroutine_threadsafe callbacks
+                # (e.g. GAME_OVER) have a chance to put their events in the queue,
+                # and sender can drain them to the browser before we cancel it.
+                await asyncio.sleep(0)
+                await asyncio.sleep(0)
+            finally:
+                sender.cancel()
+                receiver.cancel()
+                await asyncio.gather(sender, receiver, return_exceptions=True)
+                executor.shutdown(wait=False)
+
+            if self._cancelled:
+                return
+            # Loop back and wait for the next START_GAME.
 
     def cancel(self) -> None:
         """Called on WebSocket disconnect to unblock the game thread."""
