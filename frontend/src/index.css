@@ -9,3 +9,27 @@ body {
   width: 100%;
   min-height: 100vh;
 }
+
+/* ── Card deal animation ─────────────────────────────────────────────────── */
+
+@keyframes dealCard {
+  0% {
+    opacity: 0;
+    transform: translate(var(--deal-from-x, 0px), var(--deal-from-y, -60px))
+               scale(0.5) rotate(var(--deal-rotate, -6deg));
+  }
+  65% {
+    opacity: 1;
+  }
+  85% {
+    transform: translate(0, 0) scale(1.06) rotate(0deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+}
+
+.deal-card {
+  animation: dealCard 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}

@@ -1,10 +1,14 @@
+import { useCallback } from 'react'
 import type { PlayerData } from '../types'
 import { useGameStore } from '../store/gameStore'
+import { useDealContext } from '../context/DealContext'
 import Card from './Card'
 
 interface Props {
   player: PlayerData
   isDealer: boolean
+  dealDelays: [number, number]  // [card0Delay ms, card1Delay ms] – clockwise stagger
+  positionLabel?: string
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -14,16 +18,35 @@ const STATUS_COLOR: Record<string, string> = {
   bust: 'border-red-800 opacity-30',
 }
 
-export default function PlayerSeat({ player, isDealer }: Props) {
-  const { showdown, pendingAction } = useGameStore()
+const POSITION_COLOR: Record<string, string> = {
+  'SB':     'bg-blue-600 text-white',
+  'BB':     'bg-blue-600 text-white',
+  'BTN':    'bg-blue-600 text-white',
+  'SB/BTN': 'bg-blue-600 text-white',
+  'CO':     'bg-gray-600 text-gray-200',
+  'HJ':     'bg-gray-600 text-gray-200',
+  'LJ':     'bg-gray-600 text-gray-200',
+  'UTG':    'bg-gray-600 text-gray-200',
+  'UTG+1':  'bg-gray-600 text-gray-200',
+  'UTG+2':  'bg-gray-600 text-gray-200',
+}
 
-  // At showdown, find this player's revealed cards
+export default function PlayerSeat({ player, isDealer, dealDelays, positionLabel }: Props) {
+  const { showdown, pendingAction, dealRevision } = useGameStore()
+  const dealCtx = useDealContext()
+
+  // Register this seat's DOM element so the dealer origin can be looked up
+  const handleRef = useCallback((el: HTMLDivElement | null) => {
+    dealCtx?.registerSeat(player.name, el)
+  }, [player.name, dealCtx])
+
   const showdownInfo = showdown?.find((s) => s.name === player.name)
   const displayCards = showdownInfo?.hole_cards ?? player.hole_cards
   const isWaiting = pendingAction !== null && player.is_human
 
   return (
     <div
+      ref={handleRef}
       className={`relative flex flex-col items-center gap-1 p-2 rounded-xl border-2 w-28
         ${STATUS_COLOR[player.status] ?? 'border-gray-600'}
         ${player.is_human ? 'bg-green-950/40' : 'bg-gray-800/60'}
@@ -31,8 +54,14 @@ export default function PlayerSeat({ player, isDealer }: Props) {
       `}
     >
       {isDealer && (
-        <span className="absolute -top-3 -right-3 bg-white text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+        <span className="absolute -top-3 -right-3 bg-white text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
           D
+        </span>
+      )}
+      {positionLabel && (
+        <span className={`absolute -top-3 -left-3 text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow whitespace-nowrap
+          ${POSITION_COLOR[positionLabel] ?? 'bg-gray-600 text-white'}`}>
+          {positionLabel}
         </span>
       )}
 
@@ -46,11 +75,19 @@ export default function PlayerSeat({ player, isDealer }: Props) {
         {player.status === 'bust' ? (
           <span className="text-xs text-gray-500">bust</span>
         ) : displayCards.length > 0 ? (
-          displayCards.map((c, i) => <Card key={i} card={c} size="sm" />)
+          displayCards.map((c, i) => (
+            <Card
+              key={`${dealRevision}-${i}`}
+              card={c}
+              size="sm"
+              dealDelay={dealDelays[i] ?? 0}
+              getDealerEl={dealCtx?.getDealerEl}
+            />
+          ))
         ) : player.status !== 'folded' ? (
           <>
-            <Card faceDown size="sm" />
-            <Card faceDown size="sm" />
+            <Card key={`${dealRevision}-back-0`} faceDown size="sm" dealDelay={dealDelays[0]} getDealerEl={dealCtx?.getDealerEl} />
+            <Card key={`${dealRevision}-back-1`} faceDown size="sm" dealDelay={dealDelays[1]} getDealerEl={dealCtx?.getDealerEl} />
           </>
         ) : (
           <span className="text-xs text-gray-500">folded</span>

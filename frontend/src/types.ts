@@ -160,4 +160,5 @@ export interface GameState {
   showdown: ShowdownPlayer[] | null
   lastResult: HandResultMsg | null
   gameOver: GameOverMsg | null
+  dealRevision: number  // increments each NEW_HAND; used to key hole cards for re-animation
 }

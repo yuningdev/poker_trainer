@@ -21,6 +21,7 @@ const initialState: GameState = {
   showdown: null,
   lastResult: null,
   gameOver: null,
+  dealRevision: 0,
 }
 
 interface GameStore extends GameState {
@@ -88,6 +89,7 @@ export const useGameStore = create<GameStore>((set) => ({
           handNum: msg.hand_num,
           showdown: null,
           lastResult: null,
+          dealRevision: s.dealRevision + 1,
           log: [
             ...s.log,
             { id: _logId++, player: '—', text: `Hand #${msg.hand_num} begins` },
