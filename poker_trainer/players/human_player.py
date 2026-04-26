@@ -26,6 +26,10 @@ class HumanPlayer(BasePlayer):
     is not in state.legal_actions.
     """
 
+    @property
+    def is_human(self) -> bool:
+        return True
+
     def decide(self, state: "GameState") -> Tuple[Action, int]:
         """
         Prompt the human for an action and return a validated (Action, int).

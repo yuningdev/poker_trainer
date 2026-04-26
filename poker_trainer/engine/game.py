@@ -211,8 +211,7 @@ class Game:
             )
 
             # Show table state before human player acts.
-            from poker_trainer.players.human_player import HumanPlayer
-            if isinstance(player, HumanPlayer):
+            if player.is_human:
                 self.renderer.show_table(self.table, player)
 
             action, amount = player.decide(state)

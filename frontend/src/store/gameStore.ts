@@ -35,7 +35,7 @@ export const useGameStore = create<GameStore>((set) => ({
 
   setConnected: (connected) => set({ connected }),
 
-  reset: () => set({ ...initialState }),
+  reset: () => set((s) => ({ ...initialState, connected: s.connected })),
 
   clearPendingAction: () => set({ pendingAction: null }),
 

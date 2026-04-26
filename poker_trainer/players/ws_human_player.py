@@ -44,6 +44,10 @@ class WsHumanPlayer(BasePlayer):
         # Called from the game thread before blocking; must be thread-safe.
         self._on_decision_needed: Optional[Callable] = None
 
+    @property
+    def is_human(self) -> bool:
+        return True
+
     def set_decision_callback(self, callback: Callable) -> None:
         """
         Register the callback that GameSession uses to push

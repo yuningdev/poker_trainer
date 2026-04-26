@@ -104,6 +104,11 @@ class BasePlayer(ABC):
         self.is_active = False
 
     @property
+    def is_human(self) -> bool:
+        """True for human-controlled players (stdin or WebSocket)."""
+        return False
+
+    @property
     def is_all_in(self) -> bool:
         """True if the player has no chips left but is still in the hand."""
         return self.chips == 0 and self.is_active
