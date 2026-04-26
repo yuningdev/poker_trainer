@@ -55,7 +55,7 @@ export default function Card({ card, faceDown = false, size = 'md', dealDelay, g
   }
 
   const isRed = RED_SUITS.has(card.suit)
-  const color = isRed ? 'text-red-500' : 'text-gray-100'
+  const color = isRed ? 'text-red-500' : 'text-gray-900'
 
   return (
     <div ref={ref} className={`${cls} bg-white border-gray-300 ${color}`} style={animStyle}>
