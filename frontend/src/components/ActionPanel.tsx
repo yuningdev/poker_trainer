@@ -40,6 +40,8 @@ export default function ActionPanel({ onAction }: Props) {
       onAction('raise', raiseAmount || min_raise)
     } else if (action === 'call') {
       onAction('call', call_amount)
+    } else if (action === 'all_in') {
+      onAction('all_in', pendingAction.player_chips)
     } else {
       onAction(action, 0)
     }

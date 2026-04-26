@@ -337,16 +337,19 @@ class Game:
         if call_needed > 0:
             actions.append(Action.FOLD)
             if call_needed >= player.chips:
+                # Can only go all-in (not enough chips to call in full).
                 actions.append(Action.ALL_IN)
             else:
                 actions.append(Action.CALL)
                 if player.chips > call_needed:
                     actions.append(Action.RAISE)
+                actions.append(Action.ALL_IN)
         else:
             # No outstanding bet — can check or raise.
             actions.append(Action.CHECK)
             if player.chips > 0:
                 actions.append(Action.RAISE)
+                actions.append(Action.ALL_IN)
         return actions
 
     def _validate_action(
@@ -368,6 +371,8 @@ class Game:
                 return Action.CALL, min(call_needed, player.chips)
             return Action.FOLD, 0
         # Clamp amounts to chip stack.
+        if action == Action.ALL_IN:
+            amount = player.chips
         if action == Action.RAISE:
             amount = max(1, min(amount, player.chips))
         if action == Action.CALL:
