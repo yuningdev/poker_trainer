@@ -59,7 +59,7 @@ function computePositionLabels(players: PlayerData[], dealerPosition: number): s
 }
 
 export default function GameTable({ onAction: _onAction }: Props) {
-  const { players, dealerPosition } = useGameStore()
+  const { players, dealerPosition, humanEquity, currentRoundActions } = useGameStore()
   const n = players.length
   const dealerName = players[dealerPosition]?.name ?? ''
 
@@ -96,6 +96,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
                   isDealer={seatIndex === dealerPosition}
                   dealDelays={dealDelaysFor(seatIndex)}
                   positionLabel={positionLabels[seatIndex]}
+                  actionLabel={currentRoundActions[player.name] ?? null}
                 />
               ))}
             </div>
@@ -115,6 +116,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
                   isDealer={seatIndex === dealerPosition}
                   dealDelays={dealDelaysFor(seatIndex)}
                   positionLabel={positionLabels[seatIndex]}
+                  actionLabel={currentRoundActions[player.name] ?? null}
                 />
               ))}
             </div>
@@ -128,6 +130,8 @@ export default function GameTable({ onAction: _onAction }: Props) {
                   isDealer={humanIndex === dealerPosition}
                   dealDelays={dealDelaysFor(humanIndex)}
                   positionLabel={positionLabels[humanIndex]}
+                  equity={humanEquity}
+                  actionLabel={currentRoundActions[players[humanIndex].name] ?? null}
                 />
               )}
             </div>

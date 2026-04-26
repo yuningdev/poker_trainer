@@ -47,19 +47,60 @@ def _infer_phase(community_card_count: int) -> str:
     )
 
 
+# ── Rule of 2 and 4 equity estimation ────────────────────────────────────────
+
+def _calculate_rule_2_4(hole: list[Card], community: list[Card]) -> int | None:
+    """
+    Returns approximate win % using Rule of 2 and 4.
+    Only computed at FLOP (3 community cards) or TURN (4 community cards).
+    An "out" is any remaining deck card that improves the hand rank above
+    the current rank when added to the community cards.
+    """
+    n = len(community)
+    if n not in (3, 4):
+        return None
+    if not hole:
+        return None
+
+    from poker_trainer.utils.constants import Rank, Suit
+
+    used: set[Card] = set(hole + community)
+    remaining = [
+        Card(rank, suit)
+        for suit in Suit
+        for rank in Rank
+        if Card(rank, suit) not in used
+    ]
+
+    current = HandEvaluator.evaluate(hole, community)
+    outs = sum(
+        1 for c in remaining
+        if HandEvaluator.evaluate(hole, community + [c]) > current
+    )
+
+    multiplier = 4 if n == 3 else 2
+    return min(100, outs * multiplier)
+
+
 # ── Table state ───────────────────────────────────────────────────────────────
 
 def serialize_table_state(table: "Table", viewing_player: BasePlayer) -> dict:
     """
     Full table snapshot sent before the human player must act.
     Only viewing_player's hole_cards are included.
+    human_equity is the Rule-of-2-and-4 win % estimate (FLOP/TURN only).
     """
+    equity = _calculate_rule_2_4(
+        viewing_player.hole_cards,
+        list(table.community_cards),
+    )
     return {
         "type": "TABLE_STATE",
         "phase": _infer_phase(len(table.community_cards)),
         "pot": table.pot.total,
         "community_cards": [card_to_dict(c) for c in table.community_cards],
         "dealer_position": table.dealer_position,
+        "human_equity": equity,
         "players": [
             {
                 "name": p.name,

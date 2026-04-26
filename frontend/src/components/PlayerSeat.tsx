@@ -9,6 +9,19 @@ interface Props {
   isDealer: boolean
   dealDelays: [number, number]  // [card0Delay ms, card1Delay ms] – clockwise stagger
   positionLabel?: string
+  equity?: number | null        // only set for the human player
+  actionLabel?: string | null   // last action in this round
+}
+
+function actionLabelColor(label: string): string {
+  switch (label) {
+    case 'FOLD':   return 'bg-gray-700 text-gray-400'
+    case 'CHECK':  return 'bg-blue-900 text-blue-300'
+    case 'CALL':   return 'bg-green-900 text-green-300'
+    case 'RAISE':  return 'bg-yellow-900 text-yellow-300'
+    case 'ALL-IN': return 'bg-red-900 text-red-300'
+    default:       return 'bg-gray-700 text-gray-400'
+  }
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -31,7 +44,7 @@ const POSITION_COLOR: Record<string, string> = {
   'UTG+2':  'bg-gray-600 text-gray-200',
 }
 
-export default function PlayerSeat({ player, isDealer, dealDelays, positionLabel }: Props) {
+export default function PlayerSeat({ player, isDealer, dealDelays, positionLabel, equity, actionLabel }: Props) {
   const { showdown, pendingAction, dealRevision } = useGameStore()
   const dealCtx = useDealContext()
 
@@ -70,6 +83,13 @@ export default function PlayerSeat({ player, isDealer, dealDelays, positionLabel
         {player.is_human ? `★ ${player.name}` : player.name}
       </span>
 
+      {/* Equity badge (human only) */}
+      {equity != null && (
+        <div className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-900/80 text-blue-300 border border-blue-700 mb-1">
+          ~{equity}% (2&4)
+        </div>
+      )}
+
       {/* Hole cards */}
       <div className="flex gap-1">
         {player.status === 'bust' ? (
@@ -101,11 +121,16 @@ export default function PlayerSeat({ player, isDealer, dealDelays, positionLabel
         </span>
       )}
 
-      {/* Chips + bet */}
-      <div className="text-xs text-gray-300">
+      {/* Chips + bet + action label */}
+      <div className="text-xs text-gray-300 flex items-center flex-wrap justify-center gap-1">
         <span className="text-yellow-400 font-semibold">{player.chips}</span>
         {player.current_bet > 0 && (
-          <span className="text-gray-400 ml-1">(+{player.current_bet})</span>
+          <span className="text-gray-400">(+{player.current_bet})</span>
+        )}
+        {actionLabel && (
+          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${actionLabelColor(actionLabel)}`}>
+            {actionLabel}
+          </span>
         )}
       </div>
     </div>
