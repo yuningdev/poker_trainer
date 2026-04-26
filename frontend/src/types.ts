@@ -29,6 +29,7 @@ export interface TableStateMsg {
   community_cards: CardData[]
   dealer_position: number
   players: PlayerData[]
+  human_equity: number | null
 }
 
 export interface ActionRequiredMsg {
@@ -162,4 +163,6 @@ export interface GameState {
   gameOver: GameOverMsg | null
   dealRevision: number  // increments each NEW_HAND; used to key hole cards for re-animation
   humanBust: boolean    // true when the human player has been eliminated
+  humanEquity: number | null
+  currentRoundActions: Record<string, string>
 }

@@ -7,6 +7,15 @@ import type {
 
 let _logId = 0
 
+function parseActionLabel(text: string): string | null {
+  if (text === 'folds') return 'FOLD'
+  if (text === 'checks') return 'CHECK'
+  if (text.startsWith('calls')) return 'CALL'
+  if (text.startsWith('raises')) return 'RAISE'
+  if (text === 'goes all-in') return 'ALL-IN'
+  return null
+}
+
 const initialState: GameState = {
   connected: false,
   started: false,
@@ -23,6 +32,8 @@ const initialState: GameState = {
   gameOver: null,
   dealRevision: 0,
   humanBust: false,
+  humanEquity: null,
+  currentRoundActions: {},
 }
 
 interface GameStore extends GameState {
@@ -53,6 +64,7 @@ export const useGameStore = create<GameStore>((set) => ({
           dealerPosition: msg.dealer_position,
           players: msg.players,
           humanBust,
+          humanEquity: msg.human_equity ?? null,
         })
         break
       }
@@ -62,21 +74,26 @@ export const useGameStore = create<GameStore>((set) => ({
         break
 
       case 'PHASE_CHANGE':
-        set({ showdown: null })
+        set({ showdown: null, currentRoundActions: {} })
         break
 
-      case 'ACTION_LOG':
+      case 'ACTION_LOG': {
+        const label = parseActionLabel(msg.text)
         set((s) => ({
           log: [...s.log, { id: _logId++, player: msg.player, text: msg.text }],
+          currentRoundActions: label
+            ? { ...s.currentRoundActions, [msg.player]: label }
+            : s.currentRoundActions,
         }))
         break
+      }
 
       case 'SHOWDOWN':
         set({ showdown: msg.players, pendingAction: null })
         break
 
       case 'HAND_RESULT':
-        set({ lastResult: msg, pendingAction: null })
+        set({ lastResult: msg, pendingAction: null, currentRoundActions: {} })
         break
 
       case 'PLAYER_BUST':
@@ -94,6 +111,7 @@ export const useGameStore = create<GameStore>((set) => ({
           showdown: null,
           lastResult: null,
           dealRevision: s.dealRevision + 1,
+          currentRoundActions: {},
           log: [
             ...s.log,
             { id: _logId++, player: '—', text: `Hand #${msg.hand_num} begins` },
