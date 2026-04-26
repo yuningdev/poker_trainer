@@ -1,4 +1,5 @@
 import { useGameStore } from '../store/gameStore'
+import HumanBustOverlay from './HumanBustOverlay'
 
 export default function HandResultOverlay() {
   const { lastResult, gameOver } = useGameStore()
@@ -24,16 +25,19 @@ export default function HandResultOverlay() {
     )
   }
 
-  if (!lastResult) return null
+  if (!lastResult) return <HumanBustOverlay />
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40
-      bg-gray-800/95 border border-yellow-600 rounded-xl px-6 py-3 text-center shadow-xl
-      animate-bounce-once">
-      <p className="text-yellow-400 font-bold">
-        {lastResult.winner} wins <span className="text-white">{lastResult.amount}</span> chips
-      </p>
-      <p className="text-gray-300 text-sm">{lastResult.hand}</p>
-    </div>
+    <>
+      <HumanBustOverlay />
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40
+        bg-gray-800/95 border border-yellow-600 rounded-xl px-6 py-3 text-center shadow-xl
+        animate-bounce-once">
+        <p className="text-yellow-400 font-bold">
+          {lastResult.winner} wins <span className="text-white">{lastResult.amount}</span> chips
+        </p>
+        <p className="text-gray-300 text-sm">{lastResult.hand}</p>
+      </div>
+    </>
   )
 }

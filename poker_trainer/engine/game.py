@@ -50,6 +50,7 @@ class Game:
         self.dealer = dealer
         self.renderer = renderer
         self._hand_num = 0
+        self._busted_players: set = set()  # tracks already-announced bust players
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -93,6 +94,7 @@ class Game:
 
         if self._only_one_active():
             self._award_pot()
+            self.table.rotate_dealer()
             return
 
         # Flop
@@ -103,6 +105,7 @@ class Game:
 
         if self._only_one_active():
             self._award_pot()
+            self.table.rotate_dealer()
             return
 
         # Turn
@@ -113,6 +116,7 @@ class Game:
 
         if self._only_one_active():
             self._award_pot()
+            self.table.rotate_dealer()
             return
 
         # River
@@ -393,7 +397,13 @@ class Game:
         return len(self.table.get_players_with_chips()) <= 1
 
     def _remove_bust_players(self) -> None:
-        """Announce and note any player who lost all chips this hand."""
+        """
+        Deactivate and announce any player who is newly bust this session.
+        Setting is_active=False here ensures bust players are excluded from
+        all subsequent hands even before reset_for_new_hand() is called.
+        """
         for player in self.table.seats:
-            if player.chips == 0:
+            if player.chips == 0 and player not in self._busted_players:
+                player.is_active = False
+                self._busted_players.add(player)
                 self.renderer.show_bust(player.name)

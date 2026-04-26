@@ -61,12 +61,16 @@ class Table:
         """
         Clear community cards, reset the pot, and reset each player's
         per-hand state (hole cards, is_active, current_bet).
+
+        Bust players (chips == 0) are explicitly deactivated so they are
+        never dealt cards or included in betting rounds.
         """
         self.community_cards = []
         self.pot.reset()
         for player in self.seats:
-            if player.chips > 0:
-                player.clear_hand()
+            player.clear_hand()          # clears hole cards, resets bet, sets is_active=True
+            if player.chips == 0:
+                player.is_active = False  # bust — cannot play this hand
 
     def rotate_dealer(self) -> None:
         """

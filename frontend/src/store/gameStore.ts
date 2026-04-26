@@ -22,6 +22,7 @@ const initialState: GameState = {
   lastResult: null,
   gameOver: null,
   dealRevision: 0,
+  humanBust: false,
 }
 
 interface GameStore extends GameState {
@@ -42,7 +43,8 @@ export const useGameStore = create<GameStore>((set) => ({
 
   dispatch: (msg: ServerMessage) => {
     switch (msg.type) {
-      case 'TABLE_STATE':
+      case 'TABLE_STATE': {
+        const humanBust = msg.players.some((p) => p.is_human && p.status === 'bust')
         set({
           started: true,
           phase: msg.phase as Phase,
@@ -50,8 +52,10 @@ export const useGameStore = create<GameStore>((set) => ({
           communityCards: msg.community_cards,
           dealerPosition: msg.dealer_position,
           players: msg.players,
+          humanBust,
         })
         break
+      }
 
       case 'ACTION_REQUIRED':
         set({ pendingAction: msg })

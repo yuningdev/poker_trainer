@@ -161,4 +161,5 @@ export interface GameState {
   lastResult: HandResultMsg | null
   gameOver: GameOverMsg | null
   dealRevision: number  // increments each NEW_HAND; used to key hole cards for re-animation
+  humanBust: boolean    // true when the human player has been eliminated
 }
