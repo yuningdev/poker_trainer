@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useGameStore } from '../store/gameStore'
 import RaiseSlider from './RaiseSlider'
+import { TimerBar } from './TimerBar'
 import type { ActionType } from '../types'
 
 interface Props {
@@ -26,6 +27,8 @@ const ACTION_COLOR: Record<ActionType, string> = {
 export default function ActionPanel({ onAction }: Props) {
   const pendingAction = useGameStore((s) => s.pendingAction)
   const clearPendingAction = useGameStore((s) => s.clearPendingAction)
+  const timeRemaining = useGameStore((s) => s.timeRemaining)
+  const roomConfig = useGameStore((s) => s.roomConfig)
   const [raiseAmount, setRaiseAmount] = useState<number>(0)
   const [showRaise, setShowRaise] = useState(false)
 
@@ -50,6 +53,11 @@ export default function ActionPanel({ onAction }: Props) {
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 border-t border-gray-700 p-4">
       <div className="max-w-lg mx-auto flex flex-col gap-3">
+        {/* Timer bar */}
+        {timeRemaining !== null && roomConfig?.time_bank ? (
+          <TimerBar seconds={timeRemaining} total={roomConfig.time_bank} />
+        ) : null}
+
         {/* Call info */}
         {call_amount > 0 && (
           <div className="text-center text-sm text-gray-400">

@@ -110,6 +110,10 @@ export type ServerMessage =
   | NewHandMsg
   | MessageMsg
   | ErrorMsg
+  | RoomStateMsg
+  | PlayerJoinedMsg
+  | PlayerLeftMsg
+  | TimeWarningMsg
 
 // ── Browser → Server messages ─────────────────────────────────────────────────
 
@@ -137,7 +141,33 @@ export interface PlayerActionMsg {
   amount: number
 }
 
-export type ClientMessage = StartGameMsg | PlayerActionMsg
+export type ClientMessage = StartGameMsg | PlayerActionMsg | JoinRoomMsg
+
+// ── Room-related client → server messages ─────────────────────────────────────
+
+export type JoinRoomMsg = { type: 'JOIN_ROOM'; player_id: string; name: string }
+
+// ── Room-related server → client messages ─────────────────────────────────────
+
+export type RoomStateMsg = {
+  type: 'ROOM_STATE'
+  room_id: string
+  room_name: string
+  host_id: string
+  players: { player_id: string; name: string }[]
+  status: 'waiting' | 'playing' | 'finished'
+  config: {
+    total_seats: number
+    big_blind: number
+    starting_chips: number
+    time_bank: number
+    bot_strategy: string
+  }
+}
+
+export type PlayerJoinedMsg = { type: 'PLAYER_JOINED'; player_id: string; name: string }
+export type PlayerLeftMsg = { type: 'PLAYER_LEFT'; player_id: string }
+export type TimeWarningMsg = { type: 'TIME_WARNING'; player_id: string; seconds_remaining: number }
 
 // ── Game state (Zustand store shape) ─────────────────────────────────────────
 
@@ -165,4 +195,13 @@ export interface GameState {
   humanBust: boolean    // true when the human player has been eliminated
   humanEquity: number | null
   currentRoundActions: Record<string, string>
+  // Room-related state
+  roomId: string | null
+  roomName: string | null
+  roomConfig: RoomStateMsg['config'] | null
+  roomPlayers: { player_id: string; name: string }[]
+  roomStatus: 'waiting' | 'playing' | 'finished' | null
+  hostId: string | null
+  myPlayerId: string
+  timeRemaining: number | null
 }

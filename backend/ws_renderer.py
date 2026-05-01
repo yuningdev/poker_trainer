@@ -2,14 +2,19 @@
 WsRenderer — Renderer subclass that emits structured events to the browser
 instead of printing to stdout.
 
-All show_* methods call _emit(), which uses asyncio.run_coroutine_threadsafe
-to safely put events onto the asyncio.Queue from the game thread.
+All show_* methods call _emit(), which delegates to a caller-supplied
+emit_fn callable.  This decouples the renderer from asyncio internals and
+allows both single-player (GameSession) and multiplayer (RoomSession) to
+share the same renderer without changes.
+
+emit_fn signature: (event: dict) -> None
+    Called from the game thread.  Must be thread-safe (i.e. use
+    asyncio.run_coroutine_threadsafe internally).
 """
 
 from __future__ import annotations
 
-import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from poker_trainer.ui.renderer import Renderer
 
@@ -21,26 +26,26 @@ if TYPE_CHECKING:
 
 class WsRenderer(Renderer):
     """
-    Overrides all show_* methods to push JSON events onto an asyncio.Queue
-    instead of printing to a Rich Console.
+    Overrides all show_* methods to push JSON events via a caller-supplied
+    emit_fn instead of printing to a Rich Console.
 
     Thread safety:
         The game loop runs in a ThreadPoolExecutor thread.
-        asyncio.run_coroutine_threadsafe() is the documented way to
-        submit a coroutine from a non-asyncio thread.
+        The caller is responsible for making emit_fn thread-safe (typically
+        via asyncio.run_coroutine_threadsafe).
     """
 
-    def __init__(
-        self,
-        event_queue: asyncio.Queue,
-        loop: asyncio.AbstractEventLoop,
-    ) -> None:
-        self._q = event_queue
-        self._loop = loop
+    def __init__(self, emit_fn: Callable[[dict], None]) -> None:
+        """
+        Args:
+            emit_fn: Thread-safe callable that accepts a JSON-serialisable
+                     dict and delivers it to the browser.  Must not block.
+        """
+        self._emit_fn = emit_fn
 
     def _emit(self, event: dict) -> None:
-        """Thread-safe: schedule an event onto the asyncio queue."""
-        asyncio.run_coroutine_threadsafe(self._q.put(event), self._loop)
+        """Delegate to the injected emit function."""
+        self._emit_fn(event)
 
     # ── Renderer interface ────────────────────────────────────────────────────
 

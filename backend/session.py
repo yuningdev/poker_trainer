@@ -109,7 +109,11 @@ class GameSession:
         return None
 
     def _build_game(self, config: dict, loop: asyncio.AbstractEventLoop) -> Game:
-        renderer = WsRenderer(self._event_queue, loop)
+        renderer = WsRenderer(
+            lambda event: asyncio.run_coroutine_threadsafe(
+                self._event_queue.put(event), loop
+            )
+        )
 
         human = WsHumanPlayer(
             name=config.get("human_name", "You"),

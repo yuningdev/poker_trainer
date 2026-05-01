@@ -1,19 +1,22 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useGameStore } from '../store/gameStore'
-import type { ActionType, StartGameConfig, ServerMessage } from '../types'
+import type { ActionType, ServerMessage } from '../types'
 
-const WS_URL = '/ws'
-
-export function usePokerSocket() {
+export function usePokerSocket(roomId: string | null) {
   const ws = useRef<WebSocket | null>(null)
-  const { dispatch, setConnected, reset } = useGameStore()
+  const { dispatch, setConnected, myPlayerId } = useGameStore()
 
   useEffect(() => {
-    const socket = new WebSocket(WS_URL)
+    if (!roomId) return
+
+    const socket = new WebSocket(`ws://${location.host}/ws/${roomId}`)
     ws.current = socket
 
     socket.onopen = () => {
       setConnected(true)
+      // First message must be JOIN_ROOM
+      const name = localStorage.getItem('poker_player_name') || 'Player'
+      socket.send(JSON.stringify({ type: 'JOIN_ROOM', player_id: myPlayerId, name }))
     }
 
     socket.onclose = () => {
@@ -22,6 +25,7 @@ export function usePokerSocket() {
 
     socket.onerror = (e) => {
       console.error('[WS] error', e)
+      setConnected(false)
     }
 
     socket.onmessage = (event) => {
@@ -36,15 +40,15 @@ export function usePokerSocket() {
     return () => {
       socket.close()
     }
-  }, [dispatch, setConnected])
+  }, [roomId]) // intentionally only re-run when roomId changes
 
-  const startGame = useCallback((config: StartGameConfig) => {
-    reset()
-    ws.current?.send(JSON.stringify({ type: 'START_GAME', config }))
-  }, [reset])
+  const startGame = useCallback(() => {
+    ws.current?.send(JSON.stringify({ type: 'START_GAME' }))
+  }, [])
 
   const sendAction = useCallback((action: ActionType, amount = 0) => {
     ws.current?.send(JSON.stringify({ type: 'PLAYER_ACTION', action, amount }))
+    useGameStore.getState().setTimeRemaining(null)
   }, [])
 
   return { startGame, sendAction }
