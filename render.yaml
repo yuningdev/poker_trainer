@@ -6,4 +6,4 @@ services:
     envVars:
       - key: PORT
         value: 8000
-    healthCheckPath: /api/rooms
+    healthCheckPath: /api/health

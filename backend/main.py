@@ -30,6 +30,13 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Poker Trainer API")
 
 
+# ── Health check ─────────────────────────────────────────────────────────────
+
+@app.get("/api/health")
+async def health() -> dict:
+    return {"status": "ok"}
+
+
 # ── Room REST API ─────────────────────────────────────────────────────────────
 
 @app.post("/api/rooms")
