@@ -9,7 +9,8 @@ export function usePokerSocket(roomId: string | null) {
   useEffect(() => {
     if (!roomId) return
 
-    const socket = new WebSocket(`ws://${location.host}/ws/${roomId}`)
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const socket = new WebSocket(`${proto}//${location.host}/ws/${roomId}`)
     ws.current = socket
 
     socket.onopen = () => {
