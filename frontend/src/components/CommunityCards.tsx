@@ -16,22 +16,23 @@ export default function CommunityCards() {
   }, [communityCards.length])
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <span className="text-xs text-gray-400 uppercase tracking-widest">
+    <div className="flex flex-col items-center gap-1 sm:gap-2">
+      <span className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-widest">
         {phase.replace('_', ' ')}
       </span>
-      <div className="flex gap-2">
+      <div className="flex gap-1 sm:gap-2">
         {Array.from({ length: 5 }).map((_, i) => {
           const card = communityCards[i]
           const isNew = card !== undefined && i >= prevCount
           // Stagger within the newly revealed batch (0, 130, 260 ms for Flop)
           const delay = isNew ? (i - prevCount) * 130 : undefined
+          // Always render all 5 slots; dealt cards show face-up, undealt show face-down
           return (
             <Card
               key={card ? `${card.rank}-${card.suit}` : `empty-${i}`}
               card={card}
               faceDown={!card}
-              size="lg"
+              size="md"
               dealDelay={delay}
               getDealerEl={isNew ? dealCtx?.getDealerEl : undefined}
             />

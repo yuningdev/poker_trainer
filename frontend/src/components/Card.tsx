@@ -11,8 +11,8 @@ interface Props {
 
 const SIZE = {
   sm: 'w-8 h-12 text-xs',
-  md: 'w-12 h-16 text-sm',
-  lg: 'w-14 h-20 text-base',
+  md: 'w-10 h-14 text-sm sm:w-12 sm:h-16 sm:text-base',
+  lg: 'w-12 h-16 text-sm sm:w-14 sm:h-20 sm:text-base',
 }
 
 const RED_SUITS = new Set(['♥', '♦'])
@@ -48,7 +48,7 @@ export default function Card({ card, faceDown = false, size = 'md', dealDelay, g
 
   if (faceDown || !card) {
     return (
-      <div ref={ref} className={`${cls} bg-blue-800 border-blue-600 text-blue-400`} style={animStyle}>
+      <div ref={ref} className={`${cls} bg-blue-900 border-blue-700 text-blue-500`} style={animStyle}>
         🂠
       </div>
     )

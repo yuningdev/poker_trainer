@@ -6,7 +6,6 @@ import Card from './Card'
 
 interface Props {
   player: PlayerData
-  isDealer: boolean
   dealDelays: [number, number]  // [card0Delay ms, card1Delay ms] – clockwise stagger
   positionLabel?: string
   equity?: number | null        // only set for the human player
@@ -16,26 +15,26 @@ interface Props {
 function actionLabelColor(label: string): string {
   switch (label) {
     case 'FOLD':   return 'bg-gray-700 text-gray-400'
-    case 'CHECK':  return 'bg-blue-900 text-blue-300'
-    case 'CALL':   return 'bg-green-900 text-green-300'
-    case 'RAISE':  return 'bg-yellow-900 text-yellow-300'
-    case 'ALL-IN': return 'bg-red-900 text-red-300'
+    case 'CHECK':  return 'bg-gray-600 text-gray-300'
+    case 'CALL':   return 'bg-gray-600 text-gray-200'
+    case 'RAISE':  return 'bg-gray-500 text-white'
+    case 'ALL-IN': return 'bg-gray-700 text-amber-200'
     default:       return 'bg-gray-700 text-gray-400'
   }
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  active: 'border-green-500',
+const STATUS_BORDER: Record<string, string> = {
+  active: 'border-white/60',
   folded: 'border-gray-600 opacity-50',
-  all_in: 'border-yellow-500',
-  bust: 'border-red-800 opacity-30',
+  all_in: 'border-amber-200',
+  bust:   'border-gray-800',
 }
 
 const POSITION_COLOR: Record<string, string> = {
-  'SB':     'bg-blue-600 text-white',
-  'BB':     'bg-blue-600 text-white',
-  'BTN':    'bg-blue-600 text-white',
-  'SB/BTN': 'bg-blue-600 text-white',
+  'SB':     'bg-blue-700 text-white',
+  'BB':     'bg-blue-700 text-white',
+  'BTN':    'bg-blue-700 text-white',
+  'SB/BTN': 'bg-blue-700 text-white',
   'CO':     'bg-gray-600 text-gray-200',
   'HJ':     'bg-gray-600 text-gray-200',
   'LJ':     'bg-gray-600 text-gray-200',
@@ -44,7 +43,7 @@ const POSITION_COLOR: Record<string, string> = {
   'UTG+2':  'bg-gray-600 text-gray-200',
 }
 
-export default function PlayerSeat({ player, isDealer, dealDelays, positionLabel, equity, actionLabel }: Props) {
+export default function PlayerSeat({ player, dealDelays, positionLabel, equity, actionLabel }: Props) {
   const { showdown, pendingAction, dealRevision } = useGameStore()
   const dealCtx = useDealContext()
 
@@ -60,17 +59,13 @@ export default function PlayerSeat({ player, isDealer, dealDelays, positionLabel
   return (
     <div
       ref={handleRef}
-      className={`relative flex flex-col items-center gap-1 p-2 rounded-xl border-2 w-28
-        ${STATUS_COLOR[player.status] ?? 'border-gray-600'}
-        ${player.is_human ? 'bg-green-950/40' : 'bg-gray-800/60'}
-        ${isWaiting ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-gray-900' : ''}
+      className={`relative flex flex-col items-center gap-1 p-2 rounded-xl border-2
+        w-24 sm:w-28
+        ${STATUS_BORDER[player.status] ?? 'border-gray-600'}
+        ${player.is_human ? 'bg-green-950/50' : 'bg-gray-800/70'}
+        ${isWaiting ? 'ring-2 ring-white/70 ring-offset-1 ring-offset-gray-900' : ''}
       `}
     >
-      {isDealer && (
-        <span className="absolute -top-3 -right-3 bg-white text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
-          D
-        </span>
-      )}
       {positionLabel && (
         <span className={`absolute -top-3 -left-3 text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow whitespace-nowrap
           ${POSITION_COLOR[positionLabel] ?? 'bg-gray-600 text-white'}`}>
@@ -85,16 +80,14 @@ export default function PlayerSeat({ player, isDealer, dealDelays, positionLabel
 
       {/* Equity badge (human only) */}
       {equity != null && (
-        <div className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-900/80 text-blue-300 border border-blue-700 mb-1">
+        <div className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 border border-gray-600 mb-1">
           ~{equity}% (2&4)
         </div>
       )}
 
       {/* Hole cards */}
       <div className="flex gap-1">
-        {player.status === 'bust' ? (
-          <span className="text-xs text-gray-500">bust</span>
-        ) : displayCards.length > 0 ? (
+        {displayCards.length > 0 ? (
           displayCards.map((c, i) => (
             <Card
               key={`${dealRevision}-${i}`}
@@ -116,14 +109,14 @@ export default function PlayerSeat({ player, isDealer, dealDelays, positionLabel
 
       {/* Hand description at showdown */}
       {showdownInfo && (
-        <span className="text-[10px] text-yellow-300 text-center leading-tight">
+        <span className="text-[10px] text-gray-300 text-center leading-tight">
           {showdownInfo.hand_description}
         </span>
       )}
 
       {/* Chips + bet + action label */}
       <div className="text-xs text-gray-300 flex items-center flex-wrap justify-center gap-1">
-        <span className="text-yellow-400 font-semibold">{player.chips}</span>
+        <span className="text-amber-200 font-semibold">{player.chips}</span>
         {player.current_bet > 0 && (
           <span className="text-gray-400">(+{player.current_bet})</span>
         )}

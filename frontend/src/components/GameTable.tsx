@@ -57,6 +57,18 @@ function computePositionLabels(players: PlayerData[], dealerPosition: number): s
   })
 }
 
+/**
+ * Compute oval seat position as CSS left/top percentages.
+ * fraction=0 → 6 o'clock (bottom), goes clockwise.
+ * rx/ry are radius as fraction of container width/height (0–1).
+ */
+function ovalPosition(fraction: number, rx = 0.42, ry = 0.38): { left: string; top: string } {
+  const angle = 2 * Math.PI * fraction
+  const x = 50 + rx * 100 * Math.sin(angle)
+  const y = 50 + ry * 100 * (-Math.cos(angle))
+  return { left: `${x}%`, top: `${y}%` }
+}
+
 export default function GameTable({ onAction: _onAction }: Props) {
   const { players, dealerPosition, humanEquity, currentRoundActions } = useGameStore()
   const n = players.length
@@ -71,71 +83,108 @@ export default function GameTable({ onAction: _onAction }: Props) {
   }
 
   const humanIndex = players.findIndex((p) => p.is_human)
-  const opponents = players
-    .map((p, i) => ({ player: p, seatIndex: i }))
-    .filter(({ seatIndex }) => seatIndex !== humanIndex)
 
-  const topRow = opponents.slice(0, Math.ceil(opponents.length / 2))
-  const bottomRow = opponents.slice(Math.ceil(opponents.length / 2))
+  // Only show non-bust players in the seating arrangement
+  const activePlayers = players
+    .map((p, i) => ({ player: p, seatIndex: i }))
+    .filter(({ player }) => player.status !== 'bust')
+
+  const humanEntry = activePlayers.find(({ seatIndex }) => seatIndex === humanIndex)
+  const opponentEntries = activePlayers.filter(({ seatIndex }) => seatIndex !== humanIndex)
+
+  // Total seats in oval = 1 (human) + opponents
+  const totalSeats = activePlayers.length
+
+  // Human is always at fraction=0 (bottom). Opponents spread clockwise from fraction 1/total.
+  // e.g. 2 players total: human=0, opponent=0.5
+  //      3 players total: human=0, opp1=0.33, opp2=0.67
+  function opponentFraction(opponentIdx: number): number {
+    return (opponentIdx + 1) / totalSeats
+  }
 
   return (
     <DealProvider dealerName={dealerName}>
-      <div className="min-h-screen bg-gray-950 text-white flex flex-col">
-        <div className="flex flex-1 gap-0">
+      <div className="min-h-screen bg-gray-950 text-white flex flex-col overflow-x-hidden">
+        <div className="flex flex-1 gap-0 min-h-screen">
           {/* ── Main table area ── */}
-          <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6 pb-24">
-            {/* Top row players (opponents) */}
-            <div className="flex gap-3 flex-wrap justify-center">
-              {topRow.map(({ player, seatIndex }) => (
-                <PlayerSeat
-                  key={player.name}
-                  player={player}
-                  isDealer={seatIndex === dealerPosition}
-                  dealDelays={dealDelaysFor(seatIndex)}
-                  positionLabel={positionLabels[seatIndex]}
-                  actionLabel={currentRoundActions[player.name] ?? null}
-                />
-              ))}
-            </div>
+          <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 pb-28 sm:pb-32">
+            {/*
+              Oval table container.
+              We use a relative container with a fixed aspect ratio that looks like a poker table.
+              Players are absolutely positioned around the oval edge.
+            */}
+            <div
+              className="relative w-full max-w-2xl"
+              style={{ paddingBottom: 'min(70%, 480px)' }}
+            >
+              {/* Oval table felt */}
+              <div className="absolute inset-0 rounded-[50%] bg-green-900 border-4 border-green-700 shadow-2xl shadow-black/60" />
 
-            {/* Center: community cards + pot */}
-            <div className="flex flex-col items-center gap-4 bg-green-900/30 border border-green-800/50 rounded-full px-12 py-6">
-              <CommunityCards />
-              <PotDisplay />
-            </div>
+              {/* Table inner ring (decorative) */}
+              <div className="absolute inset-[8%] rounded-[50%] border border-green-700/40 pointer-events-none" />
 
-            {/* Bottom row: remaining opponents */}
-            <div className="flex gap-3 flex-wrap justify-center">
-              {bottomRow.map(({ player, seatIndex }) => (
-                <PlayerSeat
-                  key={player.name}
-                  player={player}
-                  isDealer={seatIndex === dealerPosition}
-                  dealDelays={dealDelaysFor(seatIndex)}
-                  positionLabel={positionLabels[seatIndex]}
-                  actionLabel={currentRoundActions[player.name] ?? null}
-                />
-              ))}
-            </div>
+              {/* Center: community cards + pot */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 sm:gap-3 pointer-events-none">
+                <div className="pointer-events-auto">
+                  <CommunityCards />
+                </div>
+                <div className="pointer-events-auto">
+                  <PotDisplay />
+                </div>
+              </div>
 
-            {/* Human player */}
-            <div className="flex justify-center">
-              {humanIndex !== -1 && (
-                <PlayerSeat
-                  key={players[humanIndex].name}
-                  player={players[humanIndex]}
-                  isDealer={humanIndex === dealerPosition}
-                  dealDelays={dealDelaysFor(humanIndex)}
-                  positionLabel={positionLabels[humanIndex]}
-                  equity={humanEquity}
-                  actionLabel={currentRoundActions[players[humanIndex].name] ?? null}
-                />
-              )}
+              {/* Human player at bottom-center (fraction = 0) */}
+              {humanEntry && (() => {
+                const pos = ovalPosition(0)
+                return (
+                  <div
+                    key={humanEntry.player.name}
+                    className="absolute z-10"
+                    style={{
+                      left: pos.left,
+                      top: pos.top,
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
+                    <PlayerSeat
+                      player={humanEntry.player}
+                      dealDelays={dealDelaysFor(humanEntry.seatIndex)}
+                      positionLabel={positionLabels[humanEntry.seatIndex]}
+                      equity={humanEquity}
+                      actionLabel={currentRoundActions[humanEntry.player.name] ?? null}
+                    />
+                  </div>
+                )
+              })()}
+
+              {/* Opponent players distributed clockwise around the oval */}
+              {opponentEntries.map(({ player, seatIndex }, opponentIdx) => {
+                const fraction = opponentFraction(opponentIdx)
+                const pos = ovalPosition(fraction)
+                return (
+                  <div
+                    key={player.name}
+                    className="absolute z-10"
+                    style={{
+                      left: pos.left,
+                      top: pos.top,
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
+                    <PlayerSeat
+                      player={player}
+                      dealDelays={dealDelaysFor(seatIndex)}
+                      positionLabel={positionLabels[seatIndex]}
+                      actionLabel={currentRoundActions[player.name] ?? null}
+                    />
+                  </div>
+                )
+              })}
             </div>
           </div>
 
-          {/* ── Action log sidebar ── */}
-          <div className="w-56 border-l border-gray-800 bg-gray-900/50 flex flex-col">
+          {/* ── Action log sidebar (hidden on mobile, visible from sm) ── */}
+          <div className="hidden sm:flex w-52 border-l border-gray-800 bg-gray-900/50 flex-col shrink-0">
             <div className="text-xs text-gray-500 uppercase tracking-widest px-3 py-2 border-b border-gray-800">
               Action Log
             </div>
@@ -143,6 +192,11 @@ export default function GameTable({ onAction: _onAction }: Props) {
               <ActionLog />
             </div>
           </div>
+        </div>
+
+        {/* ── Action log for mobile (bottom strip, collapsible) ── */}
+        <div className="sm:hidden fixed bottom-[72px] left-0 right-0 z-20 pointer-events-none">
+          {/* Shown as a small strip — ActionPanel sits above this */}
         </div>
       </div>
     </DealProvider>
