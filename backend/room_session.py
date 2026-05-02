@@ -84,14 +84,15 @@ class RoomSession:
         """
         Called when a player's WebSocket connects (after ws.accept()).
 
-        Handles both first-time joins and reconnections.
+        Handles both first-time joins and reconnections (including the rapid
+        reconnect caused by React StrictMode's dev-mode double-mount).
         """
-        if player_id in self.ws_players:
-            # Reconnection — swap in the new WebSocket.
+        is_reconnect = player_id in self.ws_players
+
+        if is_reconnect:
             self.ws_players[player_id]["ws"] = ws
             logger.info("Room %s: player %r reconnected", self.room_id, player_id)
         else:
-            # Fresh join — enforce seat limit.
             if len(self.ws_players) >= self.config.total_seats:
                 await ws.send_json({"type": "ERROR", "message": "Room is full"})
                 await ws.close()
@@ -107,34 +108,42 @@ class RoomSession:
                 len(self.ws_players), self.config.total_seats,
             )
 
-        # Send current room snapshot to this player.
+        # Send room snapshot + identity confirmation to this player.
         await ws.send_json(self._room_state_msg())
+        await ws.send_json({
+            "type": "WELCOME",
+            "player_id": player_id,
+            "is_host": player_id == self.host_id,
+        })
 
-        # Notify everyone else.
-        await self._broadcast(
-            {"type": "PLAYER_JOINED", "player_id": player_id, "name": name},
-            exclude=player_id,
-        )
+        # Notify others only on a *fresh* join. Reconnections are silent —
+        # other players already have this player in their list.
+        if not is_reconnect:
+            await self._broadcast(
+                {"type": "PLAYER_JOINED", "player_id": player_id, "name": name},
+                exclude=player_id,
+            )
 
     async def disconnect(self, player_id: str) -> None:
         """
         Called when a player's WebSocket closes.
 
-        During a game, the slot is kept (the player may reconnect).
-        In the lobby, the slot is removed and others are notified.
+        We always keep the slot and just mark ws=None — the player can reconnect
+        with the same player_id at any time.  This is critical for handling
+        React StrictMode's dev-mode double-mount, which would otherwise wipe
+        the host slot in the brief gap between unmount and remount.
+
+        (A real "leave" would need an explicit LEAVE message or a stale-slot
+        sweep; for now, slots persist until the room is destroyed.)
         """
         if player_id not in self.ws_players:
             return
 
         logger.info("Room %s: player %r disconnected", self.room_id, player_id)
-
-        if self.status == "playing":
-            # Mark ws as gone but preserve the slot for reconnection.
-            self.ws_players[player_id]["ws"] = None
-        else:
-            del self.ws_players[player_id]
-
-        await self._broadcast({"type": "PLAYER_LEFT", "player_id": player_id})
+        self.ws_players[player_id]["ws"] = None
+        # No PLAYER_LEFT broadcast — the slot is preserved and the player
+        # may reconnect at any time. Broadcasting LEFT would cause other
+        # clients to remove them from the lobby UI on every reconnect.
 
     # ── Message routing ───────────────────────────────────────────────────────
 
@@ -187,18 +196,27 @@ class RoomSession:
                 time_bank=self.config.time_bank,
                 on_time_warning=self._make_time_warning_callback(loop, pid),
             )
-            # Wire up the ACTION_REQUIRED callback.
-            hp.set_decision_callback(self._make_decision_callback(loop))
+            # Per-player callback so ACTION_REQUIRED carries the correct player_id.
+            hp.set_decision_callback(self._make_decision_callback(loop, pid))
             info["human_player"] = hp
             human_players.append(hp)
 
-        # Fill remaining seats with bots.
+        # Fill remaining seats with bots. Scale bot thinking time so bots
+        # never feel instant but also don't stall fast time-bank games.
+        if self.config.time_bank > 0:
+            think_max = min(3.0, max(1.0, self.config.time_bank * 0.3))
+            think_min = think_max * 0.5
+        else:
+            think_min, think_max = 1.2, 3.0
+
         bot_count = self.config.total_seats - len(human_players)
         bots = [
             PlayerFactory.create(
                 self.config.bot_strategy,
                 f"Bot {i + 1}",
                 self.config.starting_chips,
+                think_min=think_min,
+                think_max=think_max,
             )
             for i in range(bot_count)
         ]
@@ -226,8 +244,9 @@ class RoomSession:
         # Drain events to all connected clients.
         self._pump_task = asyncio.create_task(self._pump_events())
 
-        # Announce game start to the room.
-        await self._broadcast({"type": "GAME_STARTED", "room_id": self.room_id})
+        # Announce game start — broadcast updated ROOM_STATE so every client
+        # transitions from lobby to game view immediately.
+        await self._broadcast(self._room_state_msg())
 
     # ── Event pump ────────────────────────────────────────────────────────────
 
@@ -295,19 +314,19 @@ class RoomSession:
     # ── Callbacks for game thread ─────────────────────────────────────────────
 
     def _make_decision_callback(
-        self, loop: asyncio.AbstractEventLoop
+        self, loop: asyncio.AbstractEventLoop, player_id: str
     ):
         """
-        Returns a callback that serialises GameState → ACTION_REQUIRED dict
+        Returns a per-player callback that serialises GameState → ACTION_REQUIRED
         and places it on the event queue.  Called from the game thread.
 
-        The ACTION_REQUIRED is broadcast to all clients; the frontend filters
-        by player name so only the correct player sees the action panel.
+        The event is broadcast to all clients, but carries player_id so each
+        frontend can show the action panel only for its own player.
         """
         def callback(state) -> None:
             event = serialize_action_required(state)
-            # Attach which player's turn it is so clients can filter.
             event["player_name"] = state.player_name
+            event["player_id"] = player_id
             asyncio.run_coroutine_threadsafe(
                 self._event_queue.put(event),  # type: ignore[union-attr]
                 loop,

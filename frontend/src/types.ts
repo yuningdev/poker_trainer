@@ -41,6 +41,8 @@ export interface ActionRequiredMsg {
   pot: number
   current_bet: number
   player_chips: number
+  player_name?: string  // whose turn it is
+  player_id?: string    // filters action panel in multiplayer
 }
 
 export interface PhaseChangeMsg {
@@ -114,6 +116,7 @@ export type ServerMessage =
   | PlayerJoinedMsg
   | PlayerLeftMsg
   | TimeWarningMsg
+  | WelcomeMsg
 
 // ── Browser → Server messages ─────────────────────────────────────────────────
 
@@ -168,6 +171,7 @@ export type RoomStateMsg = {
 export type PlayerJoinedMsg = { type: 'PLAYER_JOINED'; player_id: string; name: string }
 export type PlayerLeftMsg = { type: 'PLAYER_LEFT'; player_id: string }
 export type TimeWarningMsg = { type: 'TIME_WARNING'; player_id: string; seconds_remaining: number }
+export type WelcomeMsg = { type: 'WELCOME'; player_id: string; is_host: boolean }
 
 // ── Game state (Zustand store shape) ─────────────────────────────────────────
 
@@ -204,4 +208,5 @@ export interface GameState {
   hostId: string | null
   myPlayerId: string
   timeRemaining: number | null
+  isCurrentPlayerHost: boolean
 }

@@ -6,9 +6,9 @@ interface Props {
 }
 
 export function RoomLobby({ onStart }: Props) {
-  const { roomId, roomName, roomPlayers, roomConfig, hostId, myPlayerId } = useGameStore()
+  const { roomId, roomName, roomPlayers, roomConfig, hostId, myPlayerId, isCurrentPlayerHost } = useGameStore()
   const [copied, setCopied] = useState(false)
-  const isHost = myPlayerId === hostId
+  const isHost = isCurrentPlayerHost
 
   const inviteLink = `${window.location.origin}/room/${roomId}`
 

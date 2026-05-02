@@ -9,10 +9,51 @@ import ActionPanel from '../components/ActionPanel'
 import HandResultOverlay from '../components/HandResultOverlay'
 import HistoryView from '../components/HistoryView'
 
+function NamePrompt({ onSubmit }: { onSubmit: (name: string) => void }) {
+  const [name, setName] = useState('')
+  const [err, setErr] = useState('')
+
+  function submit() {
+    const trimmed = name.trim()
+    if (!trimmed) { setErr('Please enter your name'); return }
+    onSubmit(trimmed)
+  }
+
+  return (
+    <div className="min-h-screen bg-green-950 flex items-center justify-center p-4">
+      <div className="bg-gray-900 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+        <h2 className="text-2xl font-bold text-white mb-2">Join Room</h2>
+        <p className="text-gray-400 text-sm mb-6">Enter your name to join the table.</p>
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          placeholder="Your name"
+          className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 border border-gray-700 focus:border-green-500 outline-none mb-3"
+        />
+        {err && <p className="text-red-400 text-sm mb-3">{err}</p>}
+        <button
+          onClick={submit}
+          className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-colors"
+        >
+          Join
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function RoomPage() {
   const { roomId: paramRoomId } = useParams<{ roomId: string }>()
   const { roomStatus, gameOver, log, handNum } = useGameStore()
-  const { startGame, sendAction } = usePokerSocket(paramRoomId ?? null)
+  const [hasName, setHasName] = useState<boolean>(
+    () => !!localStorage.getItem('poker_player_name')
+  )
+
+  // Hook is called unconditionally; pass null until the user has entered a name
+  // so the WebSocket only connects after we have a real name to send.
+  const { startGame, sendAction } = usePokerSocket(hasName ? paramRoomId ?? null : null)
   const addRecord = useHistoryStore((s) => s.addRecord)
   const [showHistory, setShowHistory] = useState(false)
 
@@ -47,6 +88,18 @@ export function RoomPage() {
       <HistoryView
         onBack={() => setShowHistory(false)}
         onNewGame={handleNewGame}
+      />
+    )
+  }
+
+  // Guest opened the invite link without setting a name — prompt first.
+  if (!hasName) {
+    return (
+      <NamePrompt
+        onSubmit={(name) => {
+          localStorage.setItem('poker_player_name', name)
+          setHasName(true)
+        }}
       />
     )
   }

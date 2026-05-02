@@ -33,7 +33,13 @@ class PlayerFactory:
     """Constructs players from a type string."""
 
     @staticmethod
-    def create(player_type: str, name: str, chips: int) -> BasePlayer:
+    def create(
+        player_type: str,
+        name: str,
+        chips: int,
+        think_min: float | None = None,
+        think_max: float | None = None,
+    ) -> BasePlayer:
         """
         Create a player of the given type.
 
@@ -41,6 +47,8 @@ class PlayerFactory:
             player_type: One of "human", "random", "passive", "aggressive".
             name:        Display name for the player.
             chips:       Starting chip count.
+            think_min:   For bots, override the minimum thinking pause (sec).
+            think_max:   For bots, override the maximum thinking pause (sec).
 
         Returns:
             A fully initialized BasePlayer subclass instance.
@@ -53,7 +61,12 @@ class PlayerFactory:
             return HumanPlayer(name=name, chips=chips)
         if t in _STRATEGY_MAP:
             strategy = _STRATEGY_MAP[t]()
-            return BotPlayer(name=name, chips=chips, strategy=strategy)
+            kwargs: dict = {}
+            if think_min is not None:
+                kwargs["think_min"] = think_min
+            if think_max is not None:
+                kwargs["think_max"] = think_max
+            return BotPlayer(name=name, chips=chips, strategy=strategy, **kwargs)
         raise ValueError(
             f"Unknown player type {player_type!r}. "
             f"Valid types: {PLAYER_TYPES}"

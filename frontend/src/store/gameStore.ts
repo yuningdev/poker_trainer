@@ -4,6 +4,7 @@ import type {
   ServerMessage,
   Phase,
   RoomStateMsg,
+  WelcomeMsg,
 } from '../types'
 
 let _logId = 0
@@ -51,6 +52,7 @@ const initialState: GameState = {
   hostId: null,
   myPlayerId: _myPlayerId,
   timeRemaining: null,
+  isCurrentPlayerHost: false,
 }
 
 interface GameStore extends GameState {
@@ -59,6 +61,7 @@ interface GameStore extends GameState {
   clearPendingAction: () => void
   reset: () => void
   setRoomState: (msg: RoomStateMsg) => void
+  setWelcome: (msg: WelcomeMsg) => void
   addRoomPlayer: (player: { player_id: string; name: string }) => void
   removeRoomPlayer: (player_id: string) => void
   setTimeRemaining: (seconds: number | null) => void
@@ -80,6 +83,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     roomPlayers: s.roomPlayers,
     roomStatus: s.roomStatus,
     hostId: s.hostId,
+    isCurrentPlayerHost: s.isCurrentPlayerHost,
   })),
 
   clearPendingAction: () => set({ pendingAction: null }),
@@ -92,6 +96,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     roomStatus: msg.status,
     roomConfig: msg.config,
   }),
+
+  setWelcome: (msg: WelcomeMsg) => {
+    // Trust the server's view of who we are. If our localStorage player_id
+    // diverged (e.g., backend regenerated it), this corrects it so badges
+    // and ACTION_REQUIRED filtering work consistently.
+    if (msg.player_id) {
+      localStorage.setItem('poker_player_id', msg.player_id)
+    }
+    set({
+      isCurrentPlayerHost: msg.is_host,
+      myPlayerId: msg.player_id,
+    })
+  },
 
   addRoomPlayer: (player) => set((s) => ({
     roomPlayers: [...s.roomPlayers, player],
@@ -121,7 +138,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
 
       case 'ACTION_REQUIRED': {
-        const { roomConfig } = get()
+        const { roomConfig, myPlayerId } = get()
+        // In multiplayer, only activate the action panel for the player whose
+        // turn it is. Single-player events have no player_id — always show.
+        const isMyTurn = !msg.player_id || msg.player_id === myPlayerId
+        if (!isMyTurn) break
         set({
           pendingAction: msg,
           timeRemaining: (roomConfig && roomConfig.time_bank > 0) ? roomConfig.time_bank : null,
@@ -191,6 +212,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       case 'ROOM_STATE':
         get().setRoomState(msg)
+        break
+
+      case 'WELCOME':
+        get().setWelcome(msg)
         break
 
       case 'PLAYER_JOINED':
