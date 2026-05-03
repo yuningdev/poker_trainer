@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useGameStore } from '../store/gameStore'
 import { DealProvider } from '../context/DealContext'
 import CommunityCards from './CommunityCards'
@@ -62,7 +63,7 @@ function computePositionLabels(players: PlayerData[], dealerPosition: number): s
  * fraction=0 → 6 o'clock (bottom), goes clockwise.
  * rx/ry are radius as fraction of container width/height (0–1).
  */
-function ovalPosition(fraction: number, rx = 0.42, ry = 0.38): { left: string; top: string } {
+function ovalPosition(fraction: number, rx = 0.44, ry = 0.40): { left: string; top: string } {
   const angle = 2 * Math.PI * fraction
   const x = 50 + rx * 100 * Math.sin(angle)
   const y = 50 + ry * 100 * (-Math.cos(angle))
@@ -70,12 +71,30 @@ function ovalPosition(fraction: number, rx = 0.42, ry = 0.38): { left: string; t
 }
 
 export default function GameTable({ onAction: _onAction }: Props) {
-  const { players, dealerPosition, humanEquity, currentRoundActions } = useGameStore()
+  const store = useGameStore()
+  const { players, dealerPosition, humanEquity, currentRoundActions, pendingNewHand } = store
   const n = players.length
   const dealerName = players[dealerPosition]?.name ?? ''
 
   const sbIndex = findSmallBlindIndex(players, dealerPosition)
   const positionLabels = computePositionLabels(players, dealerPosition)
+
+  // Collapsible action log (Change 4)
+  const [logOpen, setLogOpen] = useState(false)
+
+  // Seat animation state (Change 5)
+  const [animating, setAnimating] = useState(false)
+
+  // Change 2: wait 2500ms after NEW_HAND before flushing visual state
+  useEffect(() => {
+    if (!pendingNewHand) return
+    setAnimating(true)
+    const timer = setTimeout(() => {
+      store.flushNewHand()
+      setAnimating(false)
+    }, 2500)
+    return () => clearTimeout(timer)
+  }, [pendingNewHand])
 
   function dealDelaysFor(seatIndex: number): [number, number] {
     const rel = (seatIndex - sbIndex + n) % n
@@ -102,20 +121,23 @@ export default function GameTable({ onAction: _onAction }: Props) {
     return (opponentIdx + 1) / totalSeats
   }
 
+  const seatTransitionClass = 'transition-all duration-700'
+  const seatAnimClass = animating ? 'scale-95 opacity-80' : ''
+
   return (
     <DealProvider dealerName={dealerName}>
       <div className="min-h-screen bg-gray-950 text-white flex flex-col overflow-x-hidden">
         <div className="flex flex-1 gap-0 min-h-screen">
           {/* ── Main table area ── */}
-          <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 pb-28 sm:pb-32">
+          <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-6 pb-28 sm:pb-32">
             {/*
               Oval table container.
               We use a relative container with a fixed aspect ratio that looks like a poker table.
               Players are absolutely positioned around the oval edge.
             */}
             <div
-              className="relative w-full max-w-2xl"
-              style={{ paddingBottom: 'min(70%, 480px)' }}
+              className="relative w-full max-w-[900px]"
+              style={{ paddingBottom: 'min(65%, 560px)' }}
             >
               {/* Oval table felt */}
               <div className="absolute inset-0 rounded-[50%] bg-green-900 border-4 border-green-700 shadow-2xl shadow-black/60" />
@@ -139,7 +161,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
                 return (
                   <div
                     key={humanEntry.player.name}
-                    className="absolute z-10"
+                    className={`absolute z-10 ${seatTransitionClass} ${seatAnimClass}`}
                     style={{
                       left: pos.left,
                       top: pos.top,
@@ -164,7 +186,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
                 return (
                   <div
                     key={player.name}
-                    className="absolute z-10"
+                    className={`absolute z-10 ${seatTransitionClass} ${seatAnimClass}`}
                     style={{
                       left: pos.left,
                       top: pos.top,
@@ -184,13 +206,37 @@ export default function GameTable({ onAction: _onAction }: Props) {
           </div>
 
           {/* ── Action log sidebar (hidden on mobile, visible from sm) ── */}
-          <div className="hidden sm:flex w-52 border-l border-gray-800 bg-gray-900/50 flex-col shrink-0">
-            <div className="text-xs text-gray-500 uppercase tracking-widest px-3 py-2 border-b border-gray-800">
-              Action Log
-            </div>
-            <div className="flex-1 overflow-hidden py-2">
-              <ActionLog />
-            </div>
+          {/* Change 4: collapsible sidebar */}
+          <div
+            className={`hidden sm:flex border-l border-gray-800 bg-gray-900/50 flex-col shrink-0 transition-all duration-300 ${logOpen ? 'w-52' : 'w-8'}`}
+          >
+            {logOpen ? (
+              <>
+                <div className="flex items-center justify-between text-xs text-gray-500 uppercase tracking-widest px-3 py-2 border-b border-gray-800">
+                  <span>Log</span>
+                  <button
+                    onClick={() => setLogOpen(false)}
+                    className="text-gray-400 hover:text-gray-200 transition leading-none"
+                    title="Collapse log"
+                  >
+                    ◀
+                  </button>
+                </div>
+                <div className="flex-1 overflow-hidden py-2">
+                  <ActionLog />
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center pt-2">
+                <button
+                  onClick={() => setLogOpen(true)}
+                  className="text-gray-500 hover:text-gray-200 transition text-xs leading-none p-1"
+                  title="Expand log"
+                >
+                  ▶
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

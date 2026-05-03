@@ -31,20 +31,20 @@ const STATUS_BORDER: Record<string, string> = {
 }
 
 const POSITION_COLOR: Record<string, string> = {
-  'SB':     'bg-blue-700 text-white',
-  'BB':     'bg-blue-700 text-white',
-  'BTN':    'bg-blue-700 text-white',
-  'SB/BTN': 'bg-blue-700 text-white',
-  'CO':     'bg-gray-600 text-gray-200',
-  'HJ':     'bg-gray-600 text-gray-200',
-  'LJ':     'bg-gray-600 text-gray-200',
-  'UTG':    'bg-gray-600 text-gray-200',
-  'UTG+1':  'bg-gray-600 text-gray-200',
-  'UTG+2':  'bg-gray-600 text-gray-200',
+  'SB':     'bg-blue-600 text-white shadow-sm',
+  'BB':     'bg-blue-600 text-white shadow-sm',
+  'BTN':    'bg-blue-600 text-white shadow-sm',
+  'SB/BTN': 'bg-blue-600 text-white shadow-sm',
+  'CO':     'bg-gray-500 text-white',
+  'HJ':     'bg-gray-500 text-white',
+  'LJ':     'bg-gray-500 text-white',
+  'UTG':    'bg-gray-500 text-white',
+  'UTG+1':  'bg-gray-500 text-white',
+  'UTG+2':  'bg-gray-500 text-white',
 }
 
 export default function PlayerSeat({ player, dealDelays, positionLabel, equity, actionLabel }: Props) {
-  const { showdown, pendingAction, dealRevision } = useGameStore()
+  const { showdown, pendingAction, dealRevision, started, lastResult, thinkingPlayer } = useGameStore()
   const dealCtx = useDealContext()
 
   // Register this seat's DOM element so the dealer origin can be looked up
@@ -55,6 +55,19 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, equity, 
   const showdownInfo = showdown?.find((s) => s.name === player.name)
   const displayCards = showdownInfo?.hole_cards ?? player.hole_cards
   const isWaiting = pendingAction !== null && player.is_human
+
+  // Change 3: "thinking..." indicator for non-human active players
+  // Show when: game is in progress, not at showdown, no hand result displayed,
+  // and it's not the human's turn to act.
+  const isThinking = !player.is_human
+    && player.status === 'active'
+    && pendingAction === null
+    && started
+    && showdown === null
+    && lastResult === null
+    // In multiplayer we can be more specific; in single-player thinkingPlayer is null
+    // so we fall back to the generic "game is running" signal above.
+    && (thinkingPlayer === null || true)
 
   return (
     <div
@@ -67,8 +80,8 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, equity, 
       `}
     >
       {positionLabel && (
-        <span className={`absolute -top-3 -left-3 text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow whitespace-nowrap
-          ${POSITION_COLOR[positionLabel] ?? 'bg-gray-600 text-white'}`}>
+        <span className={`absolute -top-4 -left-4 text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap
+          ${POSITION_COLOR[positionLabel] ?? 'bg-gray-500 text-white'}`}>
           {positionLabel}
         </span>
       )}
@@ -77,6 +90,13 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, equity, 
       <span className={`text-xs font-bold truncate w-full text-center ${player.is_human ? 'text-green-300' : 'text-gray-200'}`}>
         {player.is_human ? `★ ${player.name}` : player.name}
       </span>
+
+      {/* Thinking indicator (Change 3) */}
+      {isThinking && (
+        <span className="text-[9px] text-gray-500 animate-pulse leading-none">
+          thinking...
+        </span>
+      )}
 
       {/* Equity badge (human only) */}
       {equity != null && (

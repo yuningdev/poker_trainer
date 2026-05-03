@@ -199,6 +199,8 @@ export interface GameState {
   humanBust: boolean    // true when the human player has been eliminated
   humanEquity: number | null
   currentRoundActions: Record<string, string>
+  pendingNewHand: NewHandMsg | null
+  thinkingPlayer: string | null
   // Room-related state
   roomId: string | null
   roomName: string | null

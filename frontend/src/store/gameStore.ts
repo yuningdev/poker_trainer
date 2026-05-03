@@ -43,6 +43,8 @@ const initialState: GameState = {
   humanBust: false,
   humanEquity: null,
   currentRoundActions: {},
+  pendingNewHand: null,
+  thinkingPlayer: null,
   // Room state
   roomId: null,
   roomName: null,
@@ -60,6 +62,7 @@ interface GameStore extends GameState {
   dispatch: (msg: ServerMessage) => void
   clearPendingAction: () => void
   reset: () => void
+  flushNewHand: () => void
   setRoomState: (msg: RoomStateMsg) => void
   setWelcome: (msg: WelcomeMsg) => void
   addRoomPlayer: (player: { player_id: string; name: string }) => void
@@ -87,6 +90,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
   })),
 
   clearPendingAction: () => set({ pendingAction: null }),
+
+  flushNewHand: () => set((s) => ({
+    showdown: null,
+    lastResult: null,
+    dealRevision: s.dealRevision + 1,
+    currentRoundActions: {},
+    thinkingPlayer: null,
+    pendingNewHand: null,
+  })),
 
   setRoomState: (msg: RoomStateMsg) => set({
     roomId: msg.room_id,
@@ -139,12 +151,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       case 'ACTION_REQUIRED': {
         const { roomConfig, myPlayerId } = get()
+        // Always track which player is thinking (for seat animation)
+        const thinkingPlayer = msg.player_id ?? null
         // In multiplayer, only activate the action panel for the player whose
         // turn it is. Single-player events have no player_id — always show.
         const isMyTurn = !msg.player_id || msg.player_id === myPlayerId
-        if (!isMyTurn) break
+        if (!isMyTurn) {
+          set({ thinkingPlayer })
+          break
+        }
         set({
           pendingAction: msg,
+          thinkingPlayer,
           timeRemaining: (roomConfig && roomConfig.time_bank > 0) ? roomConfig.time_bank : null,
         })
         break
@@ -161,6 +179,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           currentRoundActions: label
             ? { ...s.currentRoundActions, [msg.player]: label }
             : s.currentRoundActions,
+          thinkingPlayer: null,
         }))
         break
       }
@@ -185,10 +204,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       case 'NEW_HAND':
         set((s) => ({
           handNum: msg.hand_num,
-          showdown: null,
-          lastResult: null,
-          dealRevision: s.dealRevision + 1,
-          currentRoundActions: {},
+          pendingNewHand: msg,
+          thinkingPlayer: null,
           log: [
             ...s.log,
             { id: _logId++, player: '—', text: `Hand #${msg.hand_num} begins` },
