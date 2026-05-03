@@ -201,6 +201,7 @@ export interface GameState {
   currentRoundActions: Record<string, string>
   pendingNewHand: NewHandMsg | null
   thinkingPlayer: string | null
+  thinkingPlayerName: string | null
   // Room-related state
   roomId: string | null
   roomName: string | null

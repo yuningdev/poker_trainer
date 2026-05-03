@@ -10,9 +10,9 @@ interface Props {
 }
 
 const SIZE = {
-  sm: 'w-8 h-12 text-xs',
-  md: 'w-10 h-14 text-sm sm:w-12 sm:h-16 sm:text-base',
-  lg: 'w-12 h-16 text-sm sm:w-14 sm:h-20 sm:text-base',
+  sm: 'w-10 h-14 text-xs sm:w-12 sm:h-16 sm:text-sm',
+  md: 'w-12 h-16 text-sm sm:w-14 sm:h-20 sm:text-base',
+  lg: 'w-14 h-20 text-sm sm:w-16 sm:h-24 sm:text-base',
 }
 
 const RED_SUITS = new Set(['♥', '♦'])

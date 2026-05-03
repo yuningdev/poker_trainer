@@ -45,6 +45,7 @@ const initialState: GameState = {
   currentRoundActions: {},
   pendingNewHand: null,
   thinkingPlayer: null,
+  thinkingPlayerName: null,
   // Room state
   roomId: null,
   roomName: null,
@@ -97,6 +98,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     dealRevision: s.dealRevision + 1,
     currentRoundActions: {},
     thinkingPlayer: null,
+    thinkingPlayerName: null,
     pendingNewHand: null,
   })),
 
@@ -145,6 +147,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           players: msg.players,
           humanBust,
           humanEquity: msg.human_equity ?? null,
+          currentRoundActions: {},
         })
         break
       }
@@ -153,16 +156,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const { roomConfig, myPlayerId } = get()
         // Always track which player is thinking (for seat animation)
         const thinkingPlayer = msg.player_id ?? null
+        const thinkingPlayerName = msg.player_name ?? null
         // In multiplayer, only activate the action panel for the player whose
         // turn it is. Single-player events have no player_id — always show.
         const isMyTurn = !msg.player_id || msg.player_id === myPlayerId
         if (!isMyTurn) {
-          set({ thinkingPlayer })
+          set({ thinkingPlayer, thinkingPlayerName })
           break
         }
         set({
           pendingAction: msg,
           thinkingPlayer,
+          thinkingPlayerName,
           timeRemaining: (roomConfig && roomConfig.time_bank > 0) ? roomConfig.time_bank : null,
         })
         break

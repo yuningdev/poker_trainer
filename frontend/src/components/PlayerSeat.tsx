@@ -8,7 +8,7 @@ interface Props {
   player: PlayerData
   dealDelays: [number, number]  // [card0Delay ms, card1Delay ms] – clockwise stagger
   positionLabel?: string
-  equity?: number | null        // only set for the human player
+  equity?: number | null        // kept in signature but no longer rendered here (see InfoPanel)
   actionLabel?: string | null   // last action in this round
 }
 
@@ -43,8 +43,8 @@ const POSITION_COLOR: Record<string, string> = {
   'UTG+2':  'bg-gray-500 text-white',
 }
 
-export default function PlayerSeat({ player, dealDelays, positionLabel, equity, actionLabel }: Props) {
-  const { showdown, pendingAction, dealRevision, started, lastResult, thinkingPlayer } = useGameStore()
+export default function PlayerSeat({ player, dealDelays, positionLabel, actionLabel }: Props) {
+  const { showdown, pendingAction, dealRevision, started, lastResult, thinkingPlayerName } = useGameStore()
   const dealCtx = useDealContext()
 
   // Register this seat's DOM element so the dealer origin can be looked up
@@ -56,18 +56,23 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, equity, 
   const displayCards = showdownInfo?.hole_cards ?? player.hole_cards
   const isWaiting = pendingAction !== null && player.is_human
 
-  // Change 3: "thinking..." indicator for non-human active players
-  // Show when: game is in progress, not at showdown, no hand result displayed,
-  // and it's not the human's turn to act.
+  // Change 3: Only the specific player whose turn it is shows the thinking indicator.
+  // thinkingPlayerName is set from ACTION_REQUIRED msg.player_name.
+  // For single-player mode player_name may be absent; fall back to any active non-human.
   const isThinking = !player.is_human
     && player.status === 'active'
     && pendingAction === null
     && started
     && showdown === null
     && lastResult === null
-    // In multiplayer we can be more specific; in single-player thinkingPlayer is null
-    // so we fall back to the generic "game is running" signal above.
-    && (thinkingPlayer === null || true)
+    && (
+      thinkingPlayerName !== null
+        ? thinkingPlayerName === player.name
+        : false  // if no name available, don't show on any seat (avoids showing on all)
+    )
+
+  // Change 6: DiceBear avatar URL
+  const avatarUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(player.name)}&backgroundColor=b6e3f4`
 
   return (
     <div
@@ -77,6 +82,8 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, equity, 
         ${STATUS_BORDER[player.status] ?? 'border-gray-600'}
         ${player.is_human ? 'bg-green-950/50' : 'bg-gray-800/70'}
         ${isWaiting ? 'ring-2 ring-white/70 ring-offset-1 ring-offset-gray-900' : ''}
+        ${isThinking ? 'scale-105 ring-2 ring-white/40 ring-offset-1 ring-offset-gray-900' : ''}
+        transition-transform duration-200
       `}
     >
       {positionLabel && (
@@ -86,41 +93,43 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, equity, 
         </span>
       )}
 
+      {/* Change 6: Avatar */}
+      <img
+        src={avatarUrl}
+        alt={player.name}
+        className={`rounded-full object-cover ${player.is_human ? 'w-10 h-10 bg-green-900' : 'w-8 h-8 bg-gray-700'}`}
+      />
+
       {/* Name */}
       <span className={`text-xs font-bold truncate w-full text-center ${player.is_human ? 'text-green-300' : 'text-gray-200'}`}>
         {player.is_human ? `★ ${player.name}` : player.name}
       </span>
 
-      {/* Thinking indicator (Change 3) */}
+      {/* Change 3: Thinking indicator – animated bouncing dots */}
       {isThinking && (
-        <span className="text-[9px] text-gray-500 animate-pulse leading-none">
-          thinking...
+        <span className="flex gap-0.5 items-center">
+          <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
         </span>
       )}
 
-      {/* Equity badge (human only) */}
-      {equity != null && (
-        <div className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 border border-gray-600 mb-1">
-          ~{equity}% (2&4)
-        </div>
-      )}
-
-      {/* Hole cards */}
+      {/* Hole cards (Change 5: size="md") */}
       <div className="flex gap-1">
         {displayCards.length > 0 ? (
           displayCards.map((c, i) => (
             <Card
               key={`${dealRevision}-${i}`}
               card={c}
-              size="sm"
+              size="md"
               dealDelay={dealDelays[i] ?? 0}
               getDealerEl={dealCtx?.getDealerEl}
             />
           ))
         ) : player.status !== 'folded' ? (
           <>
-            <Card key={`${dealRevision}-back-0`} faceDown size="sm" dealDelay={dealDelays[0]} getDealerEl={dealCtx?.getDealerEl} />
-            <Card key={`${dealRevision}-back-1`} faceDown size="sm" dealDelay={dealDelays[1]} getDealerEl={dealCtx?.getDealerEl} />
+            <Card key={`${dealRevision}-back-0`} faceDown size="md" dealDelay={dealDelays[0]} getDealerEl={dealCtx?.getDealerEl} />
+            <Card key={`${dealRevision}-back-1`} faceDown size="md" dealDelay={dealDelays[1]} getDealerEl={dealCtx?.getDealerEl} />
           </>
         ) : (
           <span className="text-xs text-gray-500">folded</span>

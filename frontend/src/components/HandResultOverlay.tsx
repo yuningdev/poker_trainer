@@ -6,14 +6,18 @@ interface Props {
   onViewHistory: () => void
 }
 
+/**
+ * Handles Game Over overlay and human bust overlay.
+ * The per-hand result modal has been moved to HandResultModal (rendered inside GameTable).
+ */
 export default function HandResultOverlay({ onPlayAgain, onViewHistory }: Props) {
-  const { lastResult, gameOver } = useGameStore()
+  const { gameOver } = useGameStore()
 
   if (gameOver) {
     return (
       <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
         <div className="bg-gray-800 border-2 border-yellow-500 rounded-2xl p-8 text-center shadow-2xl max-w-sm w-full mx-4">
-          <div className="text-4xl mb-2">🏆</div>
+          <div className="text-4xl mb-2">&#127942;</div>
           <h2 className="text-yellow-400 text-2xl font-bold mb-1">Game Over</h2>
           <p className="text-white text-lg mb-4">
             <span className="text-yellow-300 font-bold">{gameOver.winner}</span> wins with{' '}
@@ -38,19 +42,5 @@ export default function HandResultOverlay({ onPlayAgain, onViewHistory }: Props)
     )
   }
 
-  if (!lastResult) return <HumanBustOverlay onPlayAgain={onPlayAgain} />
-
-  return (
-    <>
-      <HumanBustOverlay onPlayAgain={onPlayAgain} />
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40
-        bg-gray-800/95 border border-yellow-600 rounded-xl px-6 py-3 text-center shadow-xl
-        animate-bounce-once">
-        <p className="text-yellow-400 font-bold">
-          {lastResult.winner} wins <span className="text-white">{lastResult.amount}</span> chips
-        </p>
-        <p className="text-gray-300 text-sm">{lastResult.hand}</p>
-      </div>
-    </>
-  )
+  return <HumanBustOverlay onPlayAgain={onPlayAgain} />
 }

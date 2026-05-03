@@ -5,6 +5,8 @@ import CommunityCards from './CommunityCards'
 import PlayerSeat from './PlayerSeat'
 import PotDisplay from './PotDisplay'
 import ActionLog from './ActionLog'
+import HandResultModal from './HandResultModal'
+import InfoPanel from './InfoPanel'
 import type { ActionType } from '../types'
 
 interface Props {
@@ -60,7 +62,7 @@ function computePositionLabels(players: PlayerData[], dealerPosition: number): s
 
 /**
  * Compute oval seat position as CSS left/top percentages.
- * fraction=0 → 6 o'clock (bottom), goes clockwise.
+ * fraction=0 → 12 o'clock (top), fraction=0.5 → 6 o'clock (bottom), goes clockwise.
  * rx/ry are radius as fraction of container width/height (0–1).
  */
 function ovalPosition(fraction: number, rx = 0.44, ry = 0.40): { left: string; top: string } {
@@ -72,28 +74,31 @@ function ovalPosition(fraction: number, rx = 0.44, ry = 0.40): { left: string; t
 
 export default function GameTable({ onAction: _onAction }: Props) {
   const store = useGameStore()
-  const { players, dealerPosition, humanEquity, currentRoundActions, pendingNewHand } = store
+  const { players, dealerPosition, currentRoundActions, pendingNewHand } = store
   const n = players.length
   const dealerName = players[dealerPosition]?.name ?? ''
 
   const sbIndex = findSmallBlindIndex(players, dealerPosition)
   const positionLabels = computePositionLabels(players, dealerPosition)
 
-  // Collapsible action log (Change 4)
+  // Collapsible action log
   const [logOpen, setLogOpen] = useState(false)
 
-  // Seat animation state (Change 5)
+  // Seat animation state
   const [animating, setAnimating] = useState(false)
 
-  // Change 2: wait 2500ms after NEW_HAND before flushing visual state
+  // Change 1: Only set animating=true when pendingNewHand arrives.
+  // Do NOT auto-flush — the HandResultModal button does that instead.
   useEffect(() => {
     if (!pendingNewHand) return
     setAnimating(true)
-    const timer = setTimeout(() => {
-      store.flushNewHand()
+  }, [pendingNewHand])
+
+  // When flush happens (pendingNewHand cleared), stop animating
+  useEffect(() => {
+    if (!pendingNewHand) {
       setAnimating(false)
-    }, 2500)
-    return () => clearTimeout(timer)
+    }
   }, [pendingNewHand])
 
   function dealDelaysFor(seatIndex: number): [number, number] {
@@ -114,11 +119,11 @@ export default function GameTable({ onAction: _onAction }: Props) {
   // Total seats in oval = 1 (human) + opponents
   const totalSeats = activePlayers.length
 
-  // Human is always at fraction=0 (bottom). Opponents spread clockwise from fraction 1/total.
-  // e.g. 2 players total: human=0, opponent=0.5
-  //      3 players total: human=0, opp1=0.33, opp2=0.67
+  // Change 4: Human is at fraction=0.5 (bottom of oval).
+  // Opponents spread clockwise starting from left side.
+  // e.g. 4 players total: human=0.5, opp0=0.75 (left), opp1=0.0 (top), opp2=0.25 (right)
   function opponentFraction(opponentIdx: number): number {
-    return (opponentIdx + 1) / totalSeats
+    return ((0.5 + (opponentIdx + 1) / totalSeats) % 1 + 1) % 1
   }
 
   const seatTransitionClass = 'transition-all duration-700'
@@ -155,9 +160,9 @@ export default function GameTable({ onAction: _onAction }: Props) {
                 </div>
               </div>
 
-              {/* Human player at bottom-center (fraction = 0) */}
+              {/* Change 4: Human player at bottom-center (fraction = 0.5) */}
               {humanEntry && (() => {
-                const pos = ovalPosition(0)
+                const pos = ovalPosition(0.5)
                 return (
                   <div
                     key={humanEntry.player.name}
@@ -172,7 +177,6 @@ export default function GameTable({ onAction: _onAction }: Props) {
                       player={humanEntry.player}
                       dealDelays={dealDelaysFor(humanEntry.seatIndex)}
                       positionLabel={positionLabels[humanEntry.seatIndex]}
-                      equity={humanEquity}
                       actionLabel={currentRoundActions[humanEntry.player.name] ?? null}
                     />
                   </div>
@@ -206,7 +210,6 @@ export default function GameTable({ onAction: _onAction }: Props) {
           </div>
 
           {/* ── Action log sidebar (hidden on mobile, visible from sm) ── */}
-          {/* Change 4: collapsible sidebar */}
           <div
             className={`hidden sm:flex border-l border-gray-800 bg-gray-900/50 flex-col shrink-0 transition-all duration-300 ${logOpen ? 'w-52' : 'w-8'}`}
           >
@@ -245,6 +248,12 @@ export default function GameTable({ onAction: _onAction }: Props) {
           {/* Shown as a small strip — ActionPanel sits above this */}
         </div>
       </div>
+
+      {/* Change 1: Hand result modal (replaces auto-flush banner) */}
+      <HandResultModal onFlush={() => { store.flushNewHand(); setAnimating(false) }} />
+
+      {/* Change 7: Info panel */}
+      <InfoPanel />
     </DealProvider>
   )
 }
