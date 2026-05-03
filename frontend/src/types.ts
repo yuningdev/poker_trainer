@@ -200,6 +200,7 @@ export interface GameState {
   humanEquity: number | null
   currentRoundActions: Record<string, string>
   pendingNewHand: NewHandMsg | null
+  bufferedTableState: TableStateMsg | null
   thinkingPlayer: string | null
   thinkingPlayerName: string | null
   // Room-related state

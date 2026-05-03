@@ -20,7 +20,7 @@ export default function InfoPanel() {
       {/* Floating info button */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-4 z-30 w-9 h-9 rounded-full bg-gray-800 border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700 flex items-center justify-center text-base font-bold transition shadow-lg"
+        className="fixed bottom-24 sm:bottom-6 right-4 z-30 w-9 h-9 rounded-full bg-gray-800 border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700 flex items-center justify-center text-base font-bold transition shadow-lg"
         title="Table info & odds"
         aria-label="Open info panel"
       >

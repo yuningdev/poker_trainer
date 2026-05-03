@@ -5,6 +5,7 @@ import type {
   Phase,
   RoomStateMsg,
   WelcomeMsg,
+  TableStateMsg,
 } from '../types'
 
 let _logId = 0
@@ -44,6 +45,7 @@ const initialState: GameState = {
   humanEquity: null,
   currentRoundActions: {},
   pendingNewHand: null,
+  bufferedTableState: null,
   thinkingPlayer: null,
   thinkingPlayerName: null,
   // Room state
@@ -92,15 +94,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   clearPendingAction: () => set({ pendingAction: null }),
 
-  flushNewHand: () => set((s) => ({
-    showdown: null,
-    lastResult: null,
-    dealRevision: s.dealRevision + 1,
-    currentRoundActions: {},
-    thinkingPlayer: null,
-    thinkingPlayerName: null,
-    pendingNewHand: null,
-  })),
+  flushNewHand: () => set((s) => {
+    const buffered = s.bufferedTableState
+    const base = {
+      showdown: null,
+      lastResult: null,
+      dealRevision: s.dealRevision + 1,
+      currentRoundActions: {},
+      thinkingPlayer: null,
+      thinkingPlayerName: null,
+      pendingNewHand: null,
+      bufferedTableState: null,
+    }
+    if (buffered) {
+      const humanBust = buffered.players.some((p) => p.is_human && p.status === 'bust')
+      return {
+        ...base,
+        started: true,
+        phase: buffered.phase as Phase,
+        pot: buffered.pot,
+        communityCards: buffered.community_cards,
+        dealerPosition: buffered.dealer_position,
+        players: buffered.players,
+        humanBust,
+        humanEquity: buffered.human_equity ?? null,
+      }
+    }
+    return base
+  }),
 
   setRoomState: (msg: RoomStateMsg) => set({
     roomId: msg.room_id,
@@ -137,6 +158,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   dispatch: (msg: ServerMessage) => {
     switch (msg.type) {
       case 'TABLE_STATE': {
+        const { pendingNewHand } = get()
+        if (pendingNewHand !== null) {
+          // Buffer it — will be applied when flushNewHand() is called
+          set({ bufferedTableState: msg as TableStateMsg })
+          break
+        }
         const humanBust = msg.players.some((p) => p.is_human && p.status === 'bust')
         set({
           started: true,
@@ -147,6 +174,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           players: msg.players,
           humanBust,
           humanEquity: msg.human_equity ?? null,
+          bufferedTableState: null,
           currentRoundActions: {},
         })
         break

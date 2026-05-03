@@ -23,11 +23,11 @@ function actionLabelColor(label: string): string {
   }
 }
 
-const STATUS_BORDER: Record<string, string> = {
-  active: 'border-white/60',
-  folded: 'border-gray-600 opacity-50',
-  all_in: 'border-amber-200',
-  bust:   'border-gray-800',
+const STATUS_BG: Record<string, string> = {
+  active: 'bg-gray-800/80',
+  folded: 'bg-gray-800/60 opacity-50',
+  all_in: 'bg-amber-950/80',
+  bust:   'bg-gray-900/40',
 }
 
 const POSITION_COLOR: Record<string, string> = {
@@ -44,7 +44,7 @@ const POSITION_COLOR: Record<string, string> = {
 }
 
 export default function PlayerSeat({ player, dealDelays, positionLabel, actionLabel }: Props) {
-  const { showdown, pendingAction, dealRevision, started, lastResult, thinkingPlayerName } = useGameStore()
+  const { showdown, pendingAction, dealRevision, started, lastResult, pendingNewHand } = useGameStore()
   const dealCtx = useDealContext()
 
   // Register this seat's DOM element so the dealer origin can be looked up
@@ -56,20 +56,15 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
   const displayCards = showdownInfo?.hole_cards ?? player.hole_cards
   const isWaiting = pendingAction !== null && player.is_human
 
-  // Change 3: Only the specific player whose turn it is shows the thinking indicator.
-  // thinkingPlayerName is set from ACTION_REQUIRED msg.player_name.
-  // For single-player mode player_name may be absent; fall back to any active non-human.
+  // Show thinking animation on all active non-human players when it's not the
+  // human's turn (pendingAction === null) and the game is live.
   const isThinking = !player.is_human
     && player.status === 'active'
     && pendingAction === null
     && started
     && showdown === null
     && lastResult === null
-    && (
-      thinkingPlayerName !== null
-        ? thinkingPlayerName === player.name
-        : false  // if no name available, don't show on any seat (avoids showing on all)
-    )
+    && !pendingNewHand
 
   // Change 6: DiceBear avatar URL
   const avatarUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(player.name)}&backgroundColor=b6e3f4`
@@ -77,12 +72,11 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
   return (
     <div
       ref={handleRef}
-      className={`relative flex flex-col items-center gap-1 p-2 rounded-xl border-2
-        w-24 sm:w-28
-        ${STATUS_BORDER[player.status] ?? 'border-gray-600'}
-        ${player.is_human ? 'bg-green-950/50' : 'bg-gray-800/70'}
+      className={`relative flex flex-col items-center gap-1 p-2 rounded-xl shadow-lg
+        w-auto
+        ${player.is_human ? 'bg-green-950/50' : (STATUS_BG[player.status] ?? 'bg-gray-800/80')}
         ${isWaiting ? 'ring-2 ring-white/70 ring-offset-1 ring-offset-gray-900' : ''}
-        ${isThinking ? 'scale-105 ring-2 ring-white/40 ring-offset-1 ring-offset-gray-900' : ''}
+        ${isThinking ? 'scale-105 ring-2 ring-yellow-400/60 ring-offset-1 ring-offset-gray-900 animate-pulse' : ''}
         transition-transform duration-200
       `}
     >
@@ -105,12 +99,15 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
         {player.is_human ? `★ ${player.name}` : player.name}
       </span>
 
-      {/* Change 3: Thinking indicator – animated bouncing dots */}
+      {/* Thinking indicator – label + animated bouncing dots */}
       {isThinking && (
-        <span className="flex gap-0.5 items-center">
-          <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-          <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-          <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+        <span className="flex flex-col items-center gap-0.5">
+          <span className="text-[9px] text-yellow-400 font-semibold leading-none">Thinking</span>
+          <span className="flex gap-0.5 items-center">
+            <span className="w-1 h-1 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-1 h-1 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-1 h-1 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          </span>
         </span>
       )}
 
