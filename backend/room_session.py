@@ -201,13 +201,8 @@ class RoomSession:
             info["human_player"] = hp
             human_players.append(hp)
 
-        # Fill remaining seats with bots. Scale bot thinking time so bots
-        # never feel instant but also don't stall fast time-bank games.
-        if self.config.time_bank > 0:
-            think_max = min(3.0, max(1.0, self.config.time_bank * 0.3))
-            think_min = think_max * 0.5
-        else:
-            think_min, think_max = 1.2, 3.0
+        # Bots always think at least 3 seconds so the game feels realistic.
+        think_min, think_max = 3.0, 5.0
 
         bot_count = self.config.total_seats - len(human_players)
         bots = [
