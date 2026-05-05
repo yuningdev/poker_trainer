@@ -87,6 +87,13 @@ class Game:
         self._post_blinds()
         self.dealer.deal_hole_cards(self.table.seat_order_from(0))
 
+        # Emit table state immediately after dealing so the frontend shows
+        # cards right away — without this, TABLE_STATE only arrives when the
+        # human player's turn comes (after all bots ahead have thought/acted).
+        human = next((p for p in self.table.seats if p.is_human), None)
+        if human:
+            self.renderer.show_table(self.table, human)
+
         # Pre-flop: action starts left of big blind (UTG).
         self.renderer.show_phase_header("Pre-Flop")
         utg_pos = (self.table.big_blind_position + 1) % len(self.table.seats)
