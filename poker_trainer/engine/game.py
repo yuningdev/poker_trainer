@@ -221,9 +221,11 @@ class Game:
                 player_current_bet=player.current_bet,
             )
 
-            # Show table state before human player acts.
+            # Show table state before human player acts; signal bots thinking.
             if player.is_human:
                 self.renderer.show_table(self.table, player)
+            else:
+                self.renderer.show_bot_thinking(player.name)
 
             action, amount = player.decide(state)
 
@@ -289,6 +291,7 @@ class Game:
             amount = self.table.pot.total
             winner.receive_winnings(amount)
             self.renderer.show_action(winner.name, f"wins {amount} (uncontested)")
+            self.renderer.show_hand_result(winner.name, "wins uncontested", amount)
             return
 
         # Showdown: reveal cards and evaluate.

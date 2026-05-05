@@ -117,6 +117,7 @@ export type ServerMessage =
   | PlayerLeftMsg
   | TimeWarningMsg
   | WelcomeMsg
+  | BotThinkingMsg
 
 // ── Browser → Server messages ─────────────────────────────────────────────────
 
@@ -172,6 +173,7 @@ export type PlayerJoinedMsg = { type: 'PLAYER_JOINED'; player_id: string; name: 
 export type PlayerLeftMsg = { type: 'PLAYER_LEFT'; player_id: string }
 export type TimeWarningMsg = { type: 'TIME_WARNING'; player_id: string; seconds_remaining: number }
 export type WelcomeMsg = { type: 'WELCOME'; player_id: string; is_host: boolean }
+export type BotThinkingMsg = { type: 'BOT_THINKING'; player_name: string }
 
 // ── Game state (Zustand store shape) ─────────────────────────────────────────
 

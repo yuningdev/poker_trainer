@@ -13,8 +13,14 @@ let _logId = 0
 function parseActionLabel(text: string): string | null {
   if (text === 'folds') return 'FOLD'
   if (text === 'checks') return 'CHECK'
-  if (text.startsWith('calls')) return 'CALL'
-  if (text.startsWith('raises')) return 'RAISE'
+  if (text.startsWith('calls')) {
+    const m = text.match(/calls (\d+)/)
+    return m ? `CALL ${m[1]}` : 'CALL'
+  }
+  if (text.startsWith('raises')) {
+    const m = text.match(/raises to (\d+)/)
+    return m ? `RAISE ${m[1]}` : 'RAISE'
+  }
   if (text === 'goes all-in') return 'ALL-IN'
   return null
 }
@@ -95,6 +101,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   clearPendingAction: () => set({ pendingAction: null }),
 
   flushNewHand: () => set((s) => {
+    if (!s.pendingNewHand) return {}  // already auto-flushed, no-op
     const buffered = s.bufferedTableState
     const base = {
       showdown: null,
@@ -179,12 +186,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
           humanEquity: msg.human_equity ?? null,
           bufferedTableState: null,
           currentRoundActions: {},
+          // Clear pendingNewHand when table state is applied directly —
+          // this unblocks the ActionPanel for hand #1 (no prior lastResult).
+          pendingNewHand: null,
         })
         break
       }
 
       case 'ACTION_REQUIRED': {
-        const { roomConfig, myPlayerId } = get()
+        const { roomConfig, myPlayerId, pendingNewHand, bufferedTableState, dealRevision } = get()
         // Always track which player is thinking (for seat animation)
         const thinkingPlayer = msg.player_id ?? null
         const thinkingPlayerName = msg.player_name ?? null
@@ -195,7 +205,38 @@ export const useGameStore = create<GameStore>((set, get) => ({
           set({ thinkingPlayer, thinkingPlayerName })
           break
         }
+        // If it's my turn but the hand result gate (pendingNewHand) is still
+        // set, auto-flush it now — bots acted before the host could click
+        // "Next Hand". Apply any buffered TABLE_STATE so the board is current.
+        let autoFlush: Partial<GameState> = {}
+        if (pendingNewHand !== null) {
+          autoFlush = {
+            showdown: null,
+            lastResult: null,
+            pendingNewHand: null,
+            bufferedTableState: null,
+            dealRevision: dealRevision + 1,
+            currentRoundActions: {},
+          }
+          if (bufferedTableState) {
+            const humanBust = bufferedTableState.players.some(
+              (p) => p.is_human && p.status === 'bust'
+            )
+            autoFlush = {
+              ...autoFlush,
+              started: true,
+              phase: bufferedTableState.phase as Phase,
+              pot: bufferedTableState.pot,
+              communityCards: bufferedTableState.community_cards,
+              dealerPosition: bufferedTableState.dealer_position,
+              players: bufferedTableState.players,
+              humanBust,
+              humanEquity: bufferedTableState.human_equity ?? null,
+            }
+          }
+        }
         set({
+          ...autoFlush,
           pendingAction: msg,
           thinkingPlayer,
           thinkingPlayerName,
@@ -287,6 +328,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       case 'TIME_WARNING':
         set({ timeRemaining: msg.seconds_remaining })
+        break
+
+      case 'BOT_THINKING':
+        set({ thinkingPlayer: '_bot', thinkingPlayerName: msg.player_name })
         break
     }
   },

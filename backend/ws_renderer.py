@@ -100,3 +100,6 @@ class WsRenderer(Renderer):
         plain = re.sub(r"\[/?[^\]]*\]", "", msg).strip()
         if plain:
             self._emit({"type": "MESSAGE", "text": plain})
+
+    def show_bot_thinking(self, player_name: str) -> None:
+        self._emit({"type": "BOT_THINKING", "player_name": player_name})

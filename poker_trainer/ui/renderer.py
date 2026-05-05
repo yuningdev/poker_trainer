@@ -182,3 +182,7 @@ class Renderer:
     def show_message(self, msg: str) -> None:
         """Print an informational message."""
         console.print(f"  {msg}")
+
+    def show_bot_thinking(self, player_name: str) -> None:
+        """Called before a bot player decides. Terminal renderer is a no-op."""
+        pass

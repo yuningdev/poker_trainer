@@ -13,14 +13,12 @@ interface Props {
 }
 
 function actionLabelColor(label: string): string {
-  switch (label) {
-    case 'FOLD':   return 'bg-gray-700 text-gray-400'
-    case 'CHECK':  return 'bg-gray-600 text-gray-300'
-    case 'CALL':   return 'bg-gray-600 text-gray-200'
-    case 'RAISE':  return 'bg-gray-500 text-white'
-    case 'ALL-IN': return 'bg-gray-700 text-amber-200'
-    default:       return 'bg-gray-700 text-gray-400'
-  }
+  if (label === 'FOLD')            return 'bg-gray-700 text-gray-400'
+  if (label === 'CHECK')           return 'bg-gray-600 text-gray-300'
+  if (label.startsWith('CALL'))    return 'bg-gray-600 text-gray-200'
+  if (label.startsWith('RAISE'))   return 'bg-gray-500 text-white'
+  if (label === 'ALL-IN')          return 'bg-gray-700 text-amber-200'
+  return 'bg-gray-700 text-gray-400'
 }
 
 const STATUS_BG: Record<string, string> = {
@@ -44,7 +42,7 @@ const POSITION_COLOR: Record<string, string> = {
 }
 
 export default function PlayerSeat({ player, dealDelays, positionLabel, actionLabel }: Props) {
-  const { showdown, pendingAction, dealRevision, started, lastResult, pendingNewHand } = useGameStore()
+  const { showdown, pendingAction, dealRevision, started, lastResult, pendingNewHand, thinkingPlayer, thinkingPlayerName } = useGameStore()
   const dealCtx = useDealContext()
 
   // Register this seat's DOM element so the dealer origin can be looked up
@@ -56,11 +54,13 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
   const displayCards = showdownInfo?.hole_cards ?? player.hole_cards
   const isWaiting = pendingAction !== null && player.is_human
 
-  // Show thinking animation on all active non-human players when it's not the
-  // human's turn (pendingAction === null) and the game is live.
+  // Show thinking animation only on the specific bot whose turn it is.
+  // BOT_THINKING event sets thinkingPlayer='_bot' + thinkingPlayerName=name.
+  // ACTION_LOG clears thinkingPlayer to null.
   const isThinking = !player.is_human
     && player.status === 'active'
-    && pendingAction === null
+    && thinkingPlayer !== null
+    && player.name === thinkingPlayerName
     && started
     && showdown === null
     && lastResult === null
