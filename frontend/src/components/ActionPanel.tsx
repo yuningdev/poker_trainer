@@ -26,13 +26,15 @@ const ACTION_COLOR: Record<ActionType, string> = {
 
 export default function ActionPanel({ onAction }: Props) {
   const pendingAction = useGameStore((s) => s.pendingAction)
+  const pendingNewHand = useGameStore((s) => s.pendingNewHand)
   const clearPendingAction = useGameStore((s) => s.clearPendingAction)
   const timeRemaining = useGameStore((s) => s.timeRemaining)
   const roomConfig = useGameStore((s) => s.roomConfig)
   const [raiseAmount, setRaiseAmount] = useState<number>(0)
   const [showRaise, setShowRaise] = useState(false)
 
-  if (!pendingAction) return null
+  // Don't show while the hand result modal is open — wait for host to confirm
+  if (!pendingAction || pendingNewHand) return null
 
   const { legal_actions, call_amount, min_raise, max_raise } = pendingAction
 
