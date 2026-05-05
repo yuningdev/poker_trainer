@@ -158,9 +158,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   dispatch: (msg: ServerMessage) => {
     switch (msg.type) {
       case 'TABLE_STATE': {
-        const { pendingNewHand } = get()
-        if (pendingNewHand !== null) {
-          // Buffer it — will be applied when flushNewHand() is called
+        const { pendingNewHand, lastResult } = get()
+        // Only buffer when BOTH pendingNewHand and lastResult are set —
+        // meaning the hand result modal is visible and the host hasn't
+        // confirmed yet. If lastResult is null (e.g. hand 1, first deal),
+        // apply immediately so players are visible right away.
+        if (pendingNewHand !== null && lastResult !== null) {
           set({ bufferedTableState: msg as TableStateMsg })
           break
         }
