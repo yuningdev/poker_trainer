@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import { usePokerSocket } from '../hooks/usePokerSocket'
 import { useHistoryStore } from '../store/historyStore'
@@ -47,6 +47,7 @@ function NamePrompt({ onSubmit }: { onSubmit: (name: string) => void }) {
 export function RoomPage() {
   const { roomId: paramRoomId } = useParams<{ roomId: string }>()
   const { roomStatus, gameOver, log, handNum } = useGameStore()
+  const navigate = useNavigate()
   const [hasName, setHasName] = useState<boolean>(
     () => !!localStorage.getItem('poker_player_name')
   )
@@ -71,8 +72,16 @@ export function RoomPage() {
   }, [gameOver]) // intentionally only track gameOver changes
 
   const handlePlayAgain = useCallback(() => {
-    startGame()
-  }, [startGame])
+    // If the human was eliminated mid-game (bust), the room is still "playing"
+    // for other players — START_GAME would be rejected. Navigate to lobby
+    // so the player can create or join a fresh room instead.
+    const { humanBust, gameOver: go } = useGameStore.getState()
+    if (humanBust && !go) {
+      navigate('/')
+    } else {
+      startGame()
+    }
+  }, [startGame, navigate])
 
   const handleViewHistory = useCallback(() => {
     setShowHistory(true)
