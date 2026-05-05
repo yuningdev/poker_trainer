@@ -31,6 +31,8 @@ export default function HandResultModal({ onFlush }: Props) {
   if (!lastResult || !pendingNewHand) return null
 
   const winnerShowdown = showdown?.find((s) => s.name === lastResult.winner)
+  // Strip bracket notation like "[10♣ K♠ ...]" — cards are shown visually
+  const handName = lastResult.hand.replace(/\s*\[.*\]$/, '').trim()
   const humanPlayer = players.find((p) => p.is_human)
   const humanShowdown = humanPlayer ? showdown?.find((s) => s.name === humanPlayer.name) : undefined
   const humanIsWinner = humanPlayer?.name === lastResult.winner
@@ -43,7 +45,7 @@ export default function HandResultModal({ onFlush }: Props) {
           <p className="text-yellow-400 text-3xl font-bold">
             🏆 {lastResult.winner} wins {lastResult.amount} chips
           </p>
-          <p className="text-gray-300 text-base mt-1">{lastResult.hand}</p>
+          <p className="text-gray-300 text-base mt-1">{handName}</p>
         </div>
 
         {/* Winner's hole cards */}

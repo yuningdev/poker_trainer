@@ -205,7 +205,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
 
       case 'PHASE_CHANGE':
-        set({ showdown: null, currentRoundActions: {} })
+        set((s) => ({
+          // Keep showdown alive while the hand result modal is visible —
+          // the next hand's PRE_FLOP PHASE_CHANGE arrives before the host
+          // clicks "Next Hand", which would wipe out the winner's cards.
+          showdown: s.lastResult !== null ? s.showdown : null,
+          currentRoundActions: {},
+        }))
         break
 
       case 'ACTION_LOG': {
