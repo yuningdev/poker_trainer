@@ -176,7 +176,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
   ) {
     const id = ++chipIdRef.current
     const spawn = () => setChipAnims((prev) => [...prev, { id, from, to, variant }])
-    if (delayMs > 0) setTimeout(spawn, delayMs) else spawn()
+    if (delayMs > 0) { setTimeout(spawn, delayMs) } else { spawn() }
   }
 
   const POT_POS = { left: '50%', top: '50%' }
