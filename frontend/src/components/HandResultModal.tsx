@@ -42,10 +42,10 @@ export default function HandResultModal({ onFlush }: Props) {
       <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-2 border-yellow-500 rounded-2xl p-6 sm:p-8 max-w-lg w-full shadow-2xl flex flex-col gap-4">
         {/* Winner header */}
         <div className="text-center">
-          <p className="text-yellow-400 text-3xl font-bold">
-            🏆 {lastResult.winner} wins {lastResult.amount} chips
-          </p>
-          <p className="text-gray-300 text-base mt-1">{handName}</p>
+          <p className="text-yellow-400 text-xs font-bold uppercase tracking-widest mb-1 opacity-80">Winner</p>
+          <p className="text-white text-4xl font-black leading-tight">{lastResult.winner}</p>
+          <p className="text-yellow-300 text-2xl font-bold mt-1">+{lastResult.amount} chips</p>
+          <p className="text-gray-400 text-sm mt-1">{handName}</p>
         </div>
 
         {/* Winner's hole cards */}
