@@ -54,6 +54,19 @@ class Game:
         self._RUNOUT_DELAY = 2.2          # seconds between streets during all-in runout
 
     # ------------------------------------------------------------------
+    # 0.5BB rounding helpers
+    # ------------------------------------------------------------------
+
+    def _half_bb(self) -> int:
+        """Minimum bet unit = 0.5 × big blind (integer floor)."""
+        return max(1, self.table.big_blind // 2)
+
+    def _round_to_half_bb(self, amount: int) -> int:
+        """Round *amount* to the nearest 0.5 BB unit (minimum = 0.5 BB)."""
+        unit = self._half_bb()
+        return max(unit, int(round(amount / unit)) * unit)
+
+    # ------------------------------------------------------------------
     # Public entry point
     # ------------------------------------------------------------------
 
@@ -415,7 +428,9 @@ class Game:
         if action == Action.ALL_IN:
             amount = player.chips
         if action == Action.RAISE:
-            amount = max(1, min(amount, player.chips))
+            # Round to nearest 0.5 BB, then clamp to the chip stack.
+            amount = self._round_to_half_bb(amount)
+            amount = max(self._half_bb(), min(amount, player.chips))
         if action == Action.CALL:
             amount = min(amount, player.chips)
         return action, amount

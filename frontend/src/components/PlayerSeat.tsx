@@ -3,6 +3,7 @@ import type { PlayerData } from '../types'
 import { useGameStore } from '../store/gameStore'
 import { useDealContext } from '../context/DealContext'
 import Card from './Card'
+import { ChipStack } from './ChipStack'
 
 interface Props {
   player: PlayerData
@@ -42,7 +43,8 @@ const POSITION_COLOR: Record<string, string> = {
 }
 
 export default function PlayerSeat({ player, dealDelays, positionLabel, actionLabel }: Props) {
-  const { showdown, pendingAction, dealRevision, started, lastResult, pendingNewHand, thinkingPlayer, thinkingPlayerName } = useGameStore()
+  const { showdown, pendingAction, dealRevision, started, lastResult, pendingNewHand, thinkingPlayer, thinkingPlayerName, roomConfig } = useGameStore()
+  const bigBlind = roomConfig?.big_blind ?? 20
   const dealCtx = useDealContext()
 
   // Register this seat's DOM element so the dealer origin can be looked up
@@ -140,12 +142,14 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
         </span>
       )}
 
-      {/* Chips + bet + action label */}
+      {/* Chip stack visual */}
+      {player.status !== 'bust' && player.chips > 0 && (
+        <ChipStack chips={player.chips} bigBlind={bigBlind} maxStack={4} scale={0.85} />
+      )}
+
+      {/* Chip count + action label */}
       <div className="text-xs text-gray-300 flex items-center flex-wrap justify-center gap-1">
         <span className="text-amber-200 font-semibold">{player.chips}</span>
-        {player.current_bet > 0 && (
-          <span className="text-gray-400">(+{player.current_bet})</span>
-        )}
         {actionLabel && (
           <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${actionLabelColor(actionLabel)}`}>
             {actionLabel}

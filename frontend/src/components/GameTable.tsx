@@ -8,6 +8,7 @@ import ActionLog from './ActionLog'
 import HandResultModal from './HandResultModal'
 import InfoPanel from './InfoPanel'
 import { ActionToast } from './ActionToast'
+import { ChipStack } from './ChipStack'
 import { playChip, playDeal, playCheck, playFold, playWin } from '../hooks/useSound'
 import type { ActionType, PlayerData } from '../types'
 
@@ -125,9 +126,15 @@ function ChipToken({ anim, onDone }: ChipTokenProps) {
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
+/** Position halfway between the seat and pot center (for bet-chip display). */
+function betPosition(fraction: number): { left: string; top: string } {
+  return ovalPosition(fraction, 0.20, 0.17)
+}
+
 export default function GameTable({ onAction: _onAction }: Props) {
   const store = useGameStore()
-  const { players, dealerPosition, currentRoundActions, pendingNewHand, log, lastResult, dealRevision } = store
+  const { players, dealerPosition, currentRoundActions, pendingNewHand, log, lastResult, dealRevision, roomConfig } = store
+  const bigBlind = roomConfig?.big_blind ?? 20
   const n = players.length
   const dealerName = players[dealerPosition]?.name ?? ''
 
@@ -281,6 +288,34 @@ export default function GameTable({ onAction: _onAction }: Props) {
               {chipAnims.map((anim) => (
                 <ChipToken key={anim.id} anim={anim} onDone={removeChip} />
               ))}
+
+              {/* Bet-area chip stacks: each player's current_bet shown halfway
+                  between their seat and the pot center */}
+              {humanEntry && humanEntry.player.current_bet > 0 && (() => {
+                const pos = betPosition(0.5)
+                return (
+                  <div
+                    className="absolute pointer-events-none z-15"
+                    style={{ left: pos.left, top: pos.top, transform: 'translate(-50%, -50%)' }}
+                  >
+                    <ChipStack chips={humanEntry.player.current_bet} bigBlind={bigBlind} maxStack={3} scale={0.9} />
+                  </div>
+                )
+              })()}
+              {opponentEntries.map(({ player }, opponentIdx) => {
+                if (player.current_bet <= 0) return null
+                const fraction = opponentFraction(opponentIdx)
+                const pos = betPosition(fraction)
+                return (
+                  <div
+                    key={`bet-${player.name}`}
+                    className="absolute pointer-events-none z-15"
+                    style={{ left: pos.left, top: pos.top, transform: 'translate(-50%, -50%)' }}
+                  >
+                    <ChipStack chips={player.current_bet} bigBlind={bigBlind} maxStack={3} scale={0.9} />
+                  </div>
+                )
+              })}
 
               {/* Center: community cards + pot */}
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 sm:gap-3 pointer-events-none">

@@ -72,6 +72,7 @@ export default function ActionPanel({ onAction }: Props) {
           <RaiseSlider
             min={min_raise}
             max={max_raise}
+            bigBlind={roomConfig?.big_blind ?? 20}
             onChange={(v) => setRaiseAmount(v)}
           />
         )}
