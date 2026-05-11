@@ -62,51 +62,67 @@ class Pot:
     # Side-pot calculation
     # ------------------------------------------------------------------
 
-    def calculate_eligible_players(
+    def calculate_side_pots(
         self,
-    ) -> List[Tuple["BasePlayer", int]]:
+    ) -> List[Tuple[int, List["BasePlayer"]]]:
         """
-        Compute the maximum amount each eligible player can win.
+        Split the pot into side pots, each with its set of eligible winners.
 
-        This handles all-in situations by splitting the pot into layers.
-        A player can only win, from each opponent, as many chips as they
-        themselves contributed from that opponent.
+        Works by processing contribution levels from smallest to largest.
+        At each level, every player who contributed at least that amount is
+        eligible to contest that slice.
 
         Returns:
-            A list of (player, max_winnable_amount) tuples, sorted by
-            max_winnable_amount ascending.  Pass this to the showdown
-            resolver to award pots in the correct order.
+            [(amount, [eligible_players]), ...] from main pot to largest
+            side pot.  An "eligible player" is one whose total contribution
+            covers that level.
 
-        Example:
-            Player A contributed 100, Player B 200, Player C 200.
-            A can win at most 100×3=300 (main pot).
-            B and C split the 200 side pot if A wins the main.
+        Examples:
+            A=1000, B=400 (both all-in):
+              → [(800, [A, B]),  # main pot: 400 × 2
+                 (600, [A])]     # excess: returned to A automatically
+
+            A=1000, B=400, C=200 (all all-in):
+              → [(600, [A,B,C]), # main pot: 200 × 3
+                 (400, [A,B]),   # side pot 1: (400-200) × 2
+                 (600, [A])]     # side pot 2: A's excess, returned to A
         """
         if not self._contributions:
             return []
 
-        players = list(self._contributions.keys())
-        contribs = dict(self._contributions)  # copy
+        all_players = list(self._contributions.keys())
+        remaining: Dict["BasePlayer", int] = dict(self._contributions)
 
-        result: List[Tuple["BasePlayer", int]] = []
+        # Unique contribution caps, ascending
+        caps = sorted(set(self._contributions.values()))
+        pots: List[Tuple[int, List["BasePlayer"]]] = []
+        prev_cap = 0
 
-        # Process from smallest to largest contribution.
-        sorted_by_contrib = sorted(contribs.items(), key=lambda x: x[1])
+        for cap in caps:
+            level = cap - prev_cap
+            # Players whose total contribution reaches this cap are eligible.
+            eligible = [p for p in all_players if self._contributions[p] >= cap]
 
-        remaining: Dict["BasePlayer", int] = dict(contribs)
-        for player, cap in sorted_by_contrib:
-            if remaining.get(player, 0) == 0:
-                continue
-            # This player can win cap chips from every other player.
-            pot_slice = 0
-            for p in players:
-                take = min(remaining.get(p, 0), cap)
-                pot_slice += take
+            # Each player contributes at most `level` chips to this slice.
+            slice_amount = 0
+            for p in all_players:
+                take = min(remaining.get(p, 0), level)
+                slice_amount += take
                 remaining[p] = remaining.get(p, 0) - take
-            if pot_slice > 0:
-                result.append((player, pot_slice))
 
-        return result
+            if slice_amount > 0:
+                pots.append((slice_amount, eligible))
+
+            prev_cap = cap
+
+        return pots
+
+    # kept for backward compatibility; prefer calculate_side_pots()
+    def calculate_eligible_players(
+        self,
+    ) -> List[Tuple["BasePlayer", int]]:
+        """Legacy wrapper — returns (player, max_win) like the old API."""
+        return [(eligible[0], amount) for amount, eligible in self.calculate_side_pots()]
 
     def __repr__(self) -> str:
         entries = ", ".join(

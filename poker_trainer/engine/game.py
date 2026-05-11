@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from poker_trainer.cards.hand_evaluator import HandEvaluator, HandResult
 from poker_trainer.engine.dealer import Dealer
@@ -51,6 +51,7 @@ class Game:
         self.renderer = renderer
         self._hand_num = 0
         self._busted_players: set = set()  # tracks already-announced bust players
+        self._RUNOUT_DELAY = 2.2          # seconds between streets during all-in runout
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -108,6 +109,7 @@ class Game:
         self.dealer.deal_flop(self.table.community_cards)
         self.renderer.show_phase_header("Flop")
         self._reset_bets()
+        self._emit_runout_state_if_needed()
         self._betting_round(self.table.small_blind_position)
 
         if self._only_one_active():
@@ -119,6 +121,7 @@ class Game:
         self.dealer.deal_turn(self.table.community_cards)
         self.renderer.show_phase_header("Turn")
         self._reset_bets()
+        self._emit_runout_state_if_needed()
         self._betting_round(self.table.small_blind_position)
 
         if self._only_one_active():
@@ -130,6 +133,7 @@ class Game:
         self.dealer.deal_river(self.table.community_cards)
         self.renderer.show_phase_header("River")
         self._reset_bets()
+        self._emit_runout_state_if_needed()
         self._betting_round(self.table.small_blind_position)
 
         self._award_pot()
@@ -281,7 +285,8 @@ class Game:
         Handles:
             - Single winner (everyone else folded).
             - Multi-way showdown with hand comparison.
-            - Side pots for all-in players.
+            - Side pots for all-in players (excess chips returned to
+              the stack-leader so they are never over-deducted).
         """
         active = [p for p in self.table.seats if p.is_active]
 
@@ -298,50 +303,72 @@ class Game:
         self.renderer.show_showdown(active, self.table.community_cards)
 
         # Evaluate each active player's best hand.
-        results: List[Tuple[BasePlayer, HandResult]] = []
+        hand_results: Dict[BasePlayer, HandResult] = {}
         for player in active:
             result = HandEvaluator.evaluate(
                 player.hole_cards, self.table.community_cards
             )
-            results.append((player, result))
-            self.renderer.show_message(
-                f"  {player.name}: {result.display()}"
-            )
+            hand_results[player] = result
+            self.renderer.show_message(f"  {player.name}: {result.display()}")
 
-        # Handle side pots.
-        eligible_slices = self.table.pot.calculate_eligible_players()
+        # Split into side pots, each with its own eligible players list.
+        # A side pot where only one player is eligible means that player's
+        # excess chips are returned automatically (they "win" uncontested).
+        side_pots = self.table.pot.calculate_side_pots()
 
-        if not eligible_slices:
-            # Fallback: give entire pot to best hand.
-            best_player, best_result = max(results, key=lambda x: x[1])
+        if not side_pots:
+            # Fallback: single undivided pot → best overall hand wins.
+            best_player = max(hand_results, key=lambda p: hand_results[p])
             total = self.table.pot.total
             best_player.receive_winnings(total)
             self.renderer.show_hand_result(
-                best_player.name, best_result.display(), total
+                best_player.name, hand_results[best_player].display(), total
             )
             return
 
-        # Award each pot slice to the eligible player with the best hand.
-        awarded: dict[BasePlayer, int] = {}
-        for eligible_player, max_win in eligible_slices:
-            eligible_results = [
-                (p, r) for p, r in results if p.is_active
+        # Award each side pot to the eligible player with the best hand.
+        awarded: Dict[BasePlayer, int] = {}
+        for pot_amount, eligible in side_pots:
+            # Only consider active (non-folded) players who are eligible.
+            contestants = [
+                (p, hand_results[p]) for p in eligible
+                if p.is_active and p in hand_results
             ]
-            if not eligible_results:
+            if not contestants:
                 continue
-            winner, win_result = max(eligible_results, key=lambda x: x[1])
-            amount = min(max_win, self.table.pot.total)
-            winner.receive_winnings(amount)
-            awarded[winner] = awarded.get(winner, 0) + amount
+            winner, _ = max(contestants, key=lambda x: x[1])
+            winner.receive_winnings(pot_amount)
+            awarded[winner] = awarded.get(winner, 0) + pot_amount
 
-        for player, amount in awarded.items():
-            result_map = dict(results)
-            hand_desc = result_map[player].display() if player in result_map else "best hand"
-            self.renderer.show_hand_result(player.name, hand_desc, amount)
+        for player, total_won in awarded.items():
+            hand_desc = (
+                hand_results[player].display()
+                if player in hand_results
+                else "best hand"
+            )
+            self.renderer.show_hand_result(player.name, hand_desc, total_won)
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    def _is_all_in_runout(self) -> bool:
+        """True when ≥2 active players remain and ALL of them are all-in."""
+        active = self.table.get_active_players()
+        return len(active) >= 2 and all(p.is_all_in for p in active)
+
+    def _emit_runout_state_if_needed(self) -> None:
+        """
+        During an all-in runout, broadcast the current community cards to the
+        human player and pause so the frontend can animate each street
+        individually instead of receiving flop/turn/river all at once.
+        """
+        if not self._is_all_in_runout():
+            return
+        human = next((p for p in self.table.seats if p.is_human), None)
+        if human and human.is_active:
+            self.renderer.show_table(self.table, human)
+        time.sleep(self._RUNOUT_DELAY)
 
     def _legal_actions(
         self, player: BasePlayer, call_needed: int
