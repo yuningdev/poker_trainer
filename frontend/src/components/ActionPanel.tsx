@@ -53,7 +53,7 @@ export default function ActionPanel({ onAction }: Props) {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-gray-900/97 border-t border-gray-700 p-3 sm:p-4 z-30">
+    <div className="fixed bottom-0 left-0 right-0 bg-[#0d1117]/97 border-t border-[#2a3347] p-3 sm:p-4 z-30">
       <div className="max-w-lg mx-auto flex flex-col gap-2 sm:gap-3">
         {/* Timer bar */}
         {timeRemaining !== null && roomConfig?.time_bank ? (

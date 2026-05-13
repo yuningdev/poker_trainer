@@ -318,7 +318,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
 
   return (
     <DealProvider dealerName={dealerName}>
-      <div className="min-h-screen bg-gray-950 text-white flex flex-col overflow-x-hidden">
+      <div className="min-h-screen bg-[#0d1117] text-white flex flex-col overflow-x-hidden">
         <div className="flex flex-1 gap-0 min-h-screen">
           {/* ── Main table area ── */}
           <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-6 pb-28 sm:pb-32">
@@ -327,10 +327,10 @@ export default function GameTable({ onAction: _onAction }: Props) {
               style={{ paddingBottom: 'min(65%, 560px)' }}
             >
               {/* Oval table felt */}
-              <div className="absolute inset-0 rounded-[50%] bg-green-900 border-4 border-green-700 shadow-2xl shadow-black/60" />
+              <div className="absolute inset-0 rounded-[50%] bg-[#1a3329] border-4 border-[#c9a84c] shadow-2xl shadow-black/80" />
 
               {/* Table inner ring (decorative) */}
-              <div className="absolute inset-[8%] rounded-[50%] border border-green-700/40 pointer-events-none" />
+              <div className="absolute inset-[8%] rounded-[50%] border-2 border-[#c9a84c]/25 pointer-events-none" />
 
               {/* Chip animation layer — lives inside the oval container */}
               {chipAnims.map((anim) => (
@@ -418,11 +418,11 @@ export default function GameTable({ onAction: _onAction }: Props) {
 
           {/* ── Action log sidebar (sm+) ── */}
           <div
-            className={`hidden sm:flex border-l border-gray-800 bg-gray-900/50 flex-col shrink-0 transition-all duration-300 ${logOpen ? 'w-52' : 'w-8'}`}
+            className={`hidden sm:flex border-l border-[#1e2433] bg-[#0d1117]/80 flex-col shrink-0 transition-all duration-300 ${logOpen ? 'w-52' : 'w-8'}`}
           >
             {logOpen ? (
               <>
-                <div className="flex items-center justify-between text-xs text-gray-500 uppercase tracking-widest px-3 py-2 border-b border-gray-800">
+                <div className="flex items-center justify-between text-xs text-gray-500 uppercase tracking-widest px-3 py-2 border-b border-[#1e2433]">
                   <span>Log</span>
                   <button
                     onClick={() => setLogOpen(false)}
@@ -438,7 +438,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
               <div className="flex flex-col items-center pt-2">
                 <button
                   onClick={() => setLogOpen(true)}
-                  className="text-gray-500 hover:text-gray-200 transition text-xs leading-none p-1"
+                  className="text-[#2a3347] hover:text-gray-200 transition text-xs leading-none p-1"
                   title="Expand log"
                 >▶</button>
               </div>

@@ -69,8 +69,8 @@ export function ChipStack({ chips, bigBlind, maxStack = 5, scale = 1 }: Props) {
 
   // Chip disc dimensions (scaled)
   const W = Math.round(20 * scale)
-  const H = Math.round(5 * scale)
-  const GAP = Math.round(2 * scale)   // overlap gap between discs
+  const H = Math.round(7 * scale)
+  const GAP = Math.round(3 * scale)   // overlap gap between discs
 
   return (
     <div className="flex items-end gap-1 justify-center flex-wrap">
