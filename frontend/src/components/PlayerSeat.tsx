@@ -164,9 +164,9 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
           </span>
         )}
 
-        {/* Chip stack visual */}
+        {/* Chip stack visual — larger scale since there are no cards to compete */}
         {player.status !== 'bust' && player.chips > 0 && (
-          <ChipStack chips={player.chips} bigBlind={bigBlind} maxStack={4} scale={0.85} />
+          <ChipStack chips={player.chips} bigBlind={bigBlind} maxStack={4} scale={0.95} />
         )}
 
         {/* Chip count + action label */}

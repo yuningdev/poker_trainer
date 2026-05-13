@@ -64,10 +64,10 @@ function computePositionLabels(players: PlayerData[], dealerPosition: number): s
 
 /** Denomination colors matching ChipStack (radial-gradient bg + border color). */
 const CHIP_DENOMS_ANIM = [
-  { mult: 50, bg: 'radial-gradient(circle at 35% 35%, #a78bfa, #7c3aed)', border: '#c4b5fd' }, // 25BB purple
-  { mult: 10, bg: 'radial-gradient(circle at 35% 35%, #d1d5db, #4b5563)', border: '#d1d5db' }, // 5BB  gray
-  { mult:  2, bg: 'radial-gradient(circle at 35% 35%, #4ade80, #15803d)', border: '#4ade80' }, // 1BB  green
-  { mult:  1, bg: 'radial-gradient(circle at 35% 35%, #93c5fd, #1d4ed8)', border: '#93c5fd' }, // 0.5BB blue
+  { mult: 50, bg: 'radial-gradient(circle at 35% 35%, #a78bfa, #7c3aed)', border: '#a78bfa' }, // 25BB purple
+  { mult: 10, bg: 'radial-gradient(circle at 35% 35%, #d1d5db, #6b7280)', border: '#d1d5db' }, // 5BB  gray
+  { mult:  2, bg: 'radial-gradient(circle at 35% 35%, #fca5a5, #dc2626)', border: '#fca5a5' }, // 1BB  red
+  { mult:  1, bg: 'radial-gradient(circle at 35% 35%, #67e8f9, #0891b2)', border: '#67e8f9' }, // 0.5BB teal
 ]
 const WIN_CHIP_STYLE = {
   bg: 'radial-gradient(circle at 35% 35%, #fde68a, #b45309)',

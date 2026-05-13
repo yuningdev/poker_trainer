@@ -1,15 +1,15 @@
 /**
- * ChipStack — renders a player's chip count as visual poker chip stacks.
+ * ChipStack — renders a player's chip count as visual casino chip stacks.
  *
  * Denominations (in multiples of 0.5 BB = halfBb):
  *   25 BB → purple
  *    5 BB → gray
- *    1 BB → green
- *  0.5 BB → blue
+ *    1 BB → red/pink
+ *  0.5 BB → teal/blue
  *
- * Each denomination is drawn as a small side-view disc stack, like
- * real casino chips viewed from the side.  When count > maxStack the
- * excess is shown as a "×N" multiplier label.
+ * Each denomination is drawn as a side-view disc stack: a pill shape with
+ * a bright top-edge highlight, solid color body, center stripe, and a
+ * bottom-wall box-shadow that creates a 3D casino chip illusion.
  */
 
 interface Props {
@@ -17,33 +17,63 @@ interface Props {
   bigBlind: number
   /** Maximum discs to draw per stack before showing a ×N label (default 5). */
   maxStack?: number
-  /** Scale factor for chip size (default 1). Use 0.8 for bet-area chips. */
+  /** Scale factor for chip size (default 1). */
   scale?: number
 }
 
 interface Denom {
-  mult: number   // multiples of halfBb
-  bg: string
-  border: string
-  shadow: string
+  mult: number    // multiples of halfBb
+  bg: string      // main chip face color
+  highlight: string  // top-edge highlight
+  stripe: string  // center stripe (casino edge design)
+  wall: string    // bottom-wall shadow (chip thickness)
+  ring: string    // outer ring / border
 }
 
+// Colors calibrated to match reference image (dark navy table)
 const DENOMS: Denom[] = [
-  { mult: 50, bg: '#7c3aed', border: '#c4b5fd', shadow: '#3b0764' },  // 25BB purple
-  { mult: 10, bg: '#4b5563', border: '#d1d5db', shadow: '#111827' },  // 5BB  gray
-  { mult:  2, bg: '#15803d', border: '#4ade80', shadow: '#052e16' },  // 1BB  green
-  { mult:  1, bg: '#1d4ed8', border: '#93c5fd', shadow: '#172554' },  // 0.5BB blue
+  {
+    mult: 50,
+    bg: '#7c3aed',
+    highlight: 'rgba(255,255,255,0.45)',
+    stripe: 'rgba(255,255,255,0.18)',
+    wall: '#3b0764',
+    ring: '#a78bfa',
+  },  // 25BB purple
+  {
+    mult: 10,
+    bg: '#6b7280',
+    highlight: 'rgba(255,255,255,0.40)',
+    stripe: 'rgba(255,255,255,0.18)',
+    wall: '#1f2937',
+    ring: '#d1d5db',
+  },  // 5BB  gray
+  {
+    mult:  2,
+    bg: '#dc2626',
+    highlight: 'rgba(255,255,255,0.38)',
+    stripe: 'rgba(255,255,255,0.18)',
+    wall: '#7f1d1d',
+    ring: '#fca5a5',
+  },  // 1BB  red
+  {
+    mult:  1,
+    bg: '#0891b2',
+    highlight: 'rgba(255,255,255,0.38)',
+    stripe: 'rgba(255,255,255,0.18)',
+    wall: '#164e63',
+    ring: '#67e8f9',
+  },  // 0.5BB teal
 ]
 
 export function ChipStack({ chips, bigBlind, maxStack = 5, scale = 1 }: Props) {
   const halfBb = Math.max(1, Math.floor(bigBlind / 2))
 
-  // Always reserve some small-denomination chips (visual variety — every healthy
-  // stack should show blue + green chips, not just all purple).
-  // Only apply when the stack is large enough that the reserve is < 10% of total.
+  // Reserve some small-denomination chips for visual variety —
+  // every healthy stack shows multiple colors, not just all-purple.
   const RESERVE = [
-    { mult: 2, count: 2 },  // 2 green chips (1BB each)
-    { mult: 1, count: 2 },  // 2 blue chips (0.5BB each)
+    { mult: 2, count: 2 },  // 2 red chips (1BB each)
+    { mult: 1, count: 2 },  // 2 teal chips (0.5BB each)
   ]
   const reserveValue = RESERVE.reduce((s, r) => s + r.mult * halfBb * r.count, 0)
   const applyReserve = chips > reserveValue * 3
@@ -68,46 +98,84 @@ export function ChipStack({ chips, bigBlind, maxStack = 5, scale = 1 }: Props) {
   if (stacks.length === 0) return null
 
   // Chip disc dimensions (scaled)
-  const W = Math.round(20 * scale)
-  const H = Math.round(7 * scale)
-  const GAP = Math.round(3 * scale)   // overlap gap between discs
+  const W   = Math.round(26 * scale)   // chip width (diameter from side)
+  const H   = Math.round(12 * scale)   // chip height (disc thickness from side)
+  const GAP = Math.round(2  * scale)   // vertical gap between stacked discs
+  const WALL = Math.round(4 * scale)   // 3D bottom-wall thickness
 
   return (
-    <div className="flex items-end gap-1 justify-center flex-wrap">
+    <div className="flex items-end gap-1.5 justify-center flex-wrap">
       {stacks.map(({ denom, count }, di) => {
         const visCount = Math.min(count, maxStack)
-        const stackH = visCount * H + (visCount - 1) * GAP + (count > maxStack ? 10 : 0)
+        // Total stack height: discs + gaps + wall of the bottom disc
+        const stackH = visCount * H + Math.max(0, visCount - 1) * GAP + WALL
 
         return (
-          <div key={di} className="flex flex-col items-center" style={{ width: W }}>
-            {/* Chip discs, rendered bottom-to-top */}
-            <div className="relative" style={{ width: W, height: stackH }}>
-              {Array.from({ length: visCount }).map((_, ci) => (
+          <div key={di} style={{ width: W, position: 'relative', height: stackH }}>
+            {Array.from({ length: visCount }).map((_, ci) => {
+              const bottom = ci * (H + GAP) + WALL  // leave room for wall at base
+              return (
                 <div
                   key={ci}
                   style={{
                     position: 'absolute',
-                    bottom: ci * (H + GAP),
+                    bottom,
                     left: 0,
                     width: W,
                     height: H,
-                    background: denom.bg,
-                    border: `1px solid ${denom.border}`,
                     borderRadius: H / 2,
-                    boxShadow: `0 ${Math.round(2 * scale)}px 0 ${denom.shadow}`,
+                    // 3-zone gradient: top highlight | main color | bottom shade
+                    background: [
+                      `linear-gradient(180deg,`,
+                      `  ${denom.highlight} 0%,`,
+                      `  ${denom.highlight} 18%,`,
+                      `  ${denom.bg} 18%,`,
+                      `  ${denom.bg} 82%,`,
+                      `  rgba(0,0,0,0.28) 82%,`,
+                      `  rgba(0,0,0,0.28) 100%`,
+                      `)`,
+                    ].join(' '),
+                    // Center stripe overlay (casino edge design visible from side)
+                    backgroundImage: [
+                      `linear-gradient(90deg,`,
+                      `  transparent 0%, transparent 28%,`,
+                      `  ${denom.stripe} 28%, ${denom.stripe} 72%,`,
+                      `  transparent 72%, transparent 100%`,
+                      `),`,
+                      `linear-gradient(180deg,`,
+                      `  ${denom.highlight} 0%, ${denom.highlight} 18%,`,
+                      `  ${denom.bg} 18%, ${denom.bg} 82%,`,
+                      `  rgba(0,0,0,0.28) 82%, rgba(0,0,0,0.28) 100%`,
+                      `)`,
+                    ].join(' '),
+                    // Bottom wall = 3D depth; outer ring
+                    boxShadow: [
+                      `0 ${WALL}px 0 ${denom.wall}`,
+                      `0 0 0 1px ${denom.ring}`,
+                    ].join(', '),
                   }}
                 />
-              ))}
-              {/* Count label above the stack when capped */}
-              {count > maxStack && (
-                <span
-                  className="absolute left-0 right-0 text-center font-bold text-white leading-none"
-                  style={{ bottom: stackH - 8, fontSize: Math.round(7 * scale) }}
-                >
-                  ×{count}
-                </span>
-              )}
-            </div>
+              )
+            })}
+            {/* ×N multiplier label when capped */}
+            {count > maxStack && (
+              <span
+                style={{
+                  position: 'absolute',
+                  bottom: WALL + visCount * (H + GAP) - H * 0.7,
+                  left: 0,
+                  right: 0,
+                  textAlign: 'center',
+                  fontSize: Math.round(8 * scale),
+                  fontWeight: 700,
+                  color: 'white',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+                  lineHeight: 1,
+                }}
+              >
+                ×{count}
+              </span>
+            )}
           </div>
         )
       })}
