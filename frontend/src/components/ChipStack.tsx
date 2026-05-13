@@ -38,17 +38,32 @@ const DENOMS: Denom[] = [
 export function ChipStack({ chips, bigBlind, maxStack = 5, scale = 1 }: Props) {
   const halfBb = Math.max(1, Math.floor(bigBlind / 2))
 
-  // Break the chip count into denomination stacks
-  const stacks: { denom: Denom; count: number }[] = []
-  let rem = chips
+  // Always reserve some small-denomination chips (visual variety — every healthy
+  // stack should show blue + green chips, not just all purple).
+  // Only apply when the stack is large enough that the reserve is < 10% of total.
+  const RESERVE = [
+    { mult: 2, count: 2 },  // 2 green chips (1BB each)
+    { mult: 1, count: 2 },  // 2 blue chips (0.5BB each)
+  ]
+  const reserveValue = RESERVE.reduce((s, r) => s + r.mult * halfBb * r.count, 0)
+  const applyReserve = chips > reserveValue * 3
+
+  const rawCounts: Record<number, number> = {}
+  let rem = applyReserve ? chips - reserveValue : chips
   for (const d of DENOMS) {
     const value = halfBb * d.mult
     const n = Math.floor(rem / value)
-    if (n > 0) {
-      stacks.push({ denom: d, count: n })
-      rem -= n * value
+    if (n > 0) { rawCounts[d.mult] = n; rem -= n * value }
+  }
+  if (applyReserve) {
+    for (const r of RESERVE) {
+      rawCounts[r.mult] = (rawCounts[r.mult] ?? 0) + r.count
     }
   }
+
+  const stacks = DENOMS
+    .filter((d) => (rawCounts[d.mult] ?? 0) > 0)
+    .map((d) => ({ denom: d, count: rawCounts[d.mult] }))
 
   if (stacks.length === 0) return null
 

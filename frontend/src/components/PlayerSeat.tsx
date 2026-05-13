@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PlayerData } from '../types'
 import { useGameStore } from '../store/gameStore'
 import { useDealContext } from '../context/DealContext'
@@ -20,6 +20,15 @@ function actionLabelColor(label: string): string {
   if (label.startsWith('RAISE'))   return 'bg-gray-500 text-white'
   if (label === 'ALL-IN')          return 'bg-gray-700 text-amber-200'
   return 'bg-gray-700 text-gray-400'
+}
+
+function actionToastColor(label: string): string {
+  if (label === 'FOLD')           return 'text-gray-400'
+  if (label === 'CHECK')          return 'text-gray-200'
+  if (label.startsWith('CALL'))   return 'text-blue-300'
+  if (label.startsWith('RAISE'))  return 'text-green-300'
+  if (label === 'ALL-IN')         return 'text-amber-300'
+  return 'text-gray-300'
 }
 
 const STATUS_BG: Record<string, string> = {
@@ -57,8 +66,6 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
   const isWaiting = pendingAction !== null && player.is_human
 
   // Show thinking animation only on the specific bot whose turn it is.
-  // BOT_THINKING event sets thinkingPlayer='_bot' + thinkingPlayerName=name.
-  // ACTION_LOG clears thinkingPlayer to null.
   const isThinking = !player.is_human
     && player.status === 'active'
     && thinkingPlayer !== null
@@ -68,7 +75,25 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
     && lastResult === null
     && !pendingNewHand
 
-  // Change 6: DiceBear avatar URL
+  // ── Action flash toast (appears above this seat, fades out after 1.6s) ──────
+  const [flashLabel, setFlashLabel] = useState<string | null>(null)
+  const [flashVisible, setFlashVisible] = useState(false)
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prevLabelRef = useRef<string | null | undefined>(null)
+
+  useEffect(() => {
+    // Only fire when the label changes to a new non-null value
+    if (!actionLabel || actionLabel === prevLabelRef.current) return
+    prevLabelRef.current = actionLabel
+
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
+    setFlashLabel(actionLabel)
+    setFlashVisible(true)
+    flashTimerRef.current = setTimeout(() => setFlashVisible(false), 1500)
+    return () => { if (flashTimerRef.current) clearTimeout(flashTimerRef.current) }
+  }, [actionLabel])
+
+  // DiceBear avatar URL
   const avatarUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(player.name)}&backgroundColor=b6e3f4`
 
   return (
@@ -89,7 +114,19 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
         </span>
       )}
 
-      {/* Change 6: Avatar */}
+      {/* Action flash toast — appears above the seat, fades out */}
+      {flashLabel && (
+        <div
+          className={`absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none z-20
+            transition-opacity duration-300 ${flashVisible ? 'opacity-100' : 'opacity-0'}`}
+        >
+          <span className={`text-base font-black px-2.5 py-1 rounded-lg bg-black/75 shadow-lg ${actionToastColor(flashLabel)}`}>
+            {flashLabel}
+          </span>
+        </div>
+      )}
+
+      {/* Avatar */}
       <img
         src={avatarUrl}
         alt={player.name}
@@ -113,7 +150,7 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
         </span>
       )}
 
-      {/* Hole cards (Change 5: size="md") */}
+      {/* Hole cards */}
       <div className="flex gap-1">
         {displayCards.length > 0 ? (
           displayCards.map((c, i) => (
@@ -147,7 +184,7 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
         <ChipStack chips={player.chips} bigBlind={bigBlind} maxStack={4} scale={0.85} />
       )}
 
-      {/* Chip count + action label */}
+      {/* Chip count + action label badge */}
       <div className="text-xs text-gray-300 flex items-center flex-wrap justify-center gap-1">
         <span className="text-amber-200 font-semibold">{player.chips}</span>
         {actionLabel && (

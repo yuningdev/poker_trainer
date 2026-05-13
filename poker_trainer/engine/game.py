@@ -18,6 +18,7 @@ modifies it.
 from __future__ import annotations
 
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -195,30 +196,24 @@ class Game:
         current_bet = max(p.current_bet for p in seats)
         min_raise = self.table.big_blind
 
-        # Track who still needs to act.  Starts as all active players.
-        # Resets to all-except-raiser whenever a raise occurs.
-        to_act = set(
-            p for p in self.table.get_active_players()
-            if not p.is_all_in
-        )
+        def _queue_from(start: int, exclude: "BasePlayer | None" = None) -> "deque[BasePlayer]":
+            """Active non-all-in players in clockwise order from *start*, excluding *exclude*."""
+            q: deque[BasePlayer] = deque()
+            for offset in range(n):
+                p = seats[(start + offset) % n]
+                if p.is_active and not p.is_all_in and p is not exclude:
+                    q.append(p)
+            return q
 
-        # Pre-flop: big blind already "bet"; they get to raise if no one
-        # raised.  We handle this by including them in to_act initially.
+        # Build the initial action queue clockwise from start_pos.
+        # Every active non-all-in player must act at least once.
+        queue = _queue_from(start_pos)
 
-        acted: set[BasePlayer] = set()
+        while queue:
+            player = queue.popleft()
 
-        # Iterate clockwise from start_pos
-        i = start_pos
-        safety = 0
-        while to_act and safety < n * 10:
-            safety += 1
-            player = seats[i % n]
-            i += 1
-
-            if player not in to_act:
-                # Check whether we've gone all the way around and can stop.
-                if not to_act:
-                    break
+            # Player might have gone all-in or folded while in the queue.
+            if not player.is_active or player.is_all_in:
                 continue
 
             # Build legal actions for this player.
@@ -252,40 +247,29 @@ class Game:
             if action == Action.FOLD:
                 player.fold()
                 self.renderer.show_action(player.name, "folds")
-                to_act.discard(player)
-                acted.add(player)
 
             elif action == Action.CHECK:
                 self.renderer.show_action(player.name, "checks")
-                to_act.discard(player)
-                acted.add(player)
 
             elif action == Action.CALL:
                 placed = player.place_chips(amount)
                 self.table.pot.add(player, placed)
                 self.renderer.show_action(player.name, f"calls {placed}")
-                to_act.discard(player)
-                acted.add(player)
 
             elif action in (Action.RAISE, Action.ALL_IN):
                 placed = player.place_chips(amount)
                 self.table.pot.add(player, placed)
                 current_bet = player.current_bet
-                min_raise = amount  # Update min raise increment
+                min_raise = amount  # Update min-raise increment
                 label = "goes all-in" if action == Action.ALL_IN else f"raises to {current_bet}"
                 self.renderer.show_action(player.name, label)
-                # Everyone else (who is active and not all-in) must act again.
-                to_act = set(
-                    p for p in self.table.get_active_players()
-                    if p != player and not p.is_all_in
-                )
-                acted.add(player)
+                # Rebuild queue: everyone else who is active and not all-in,
+                # starting clockwise from the seat AFTER this player.
+                raiser_idx = seats.index(player)
+                queue = _queue_from((raiser_idx + 1) % n, exclude=player)
 
             if not self.table.get_active_players() or self._only_one_active():
                 break
-
-        # Collect any uncollected bets into the pot (safety net).
-        # (Already collected per-action above.)
 
     # ------------------------------------------------------------------
     # Showdown & pot award

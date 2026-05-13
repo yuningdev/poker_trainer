@@ -45,7 +45,7 @@ export function playDeal(): void {
     src.buffer = buf
     const filter = c.createBiquadFilter()
     filter.type = 'bandpass'; filter.frequency.value = 4000; filter.Q.value = 0.6
-    const gain = c.createGain(); gain.gain.setValueAtTime(0.3, c.currentTime)
+    const gain = c.createGain(); gain.gain.setValueAtTime(0.1, c.currentTime)
     src.connect(filter); filter.connect(gain); gain.connect(c.destination)
     src.start()
   } catch { /* ignore */ }

@@ -7,7 +7,6 @@ import PotDisplay from './PotDisplay'
 import ActionLog from './ActionLog'
 import HandResultModal from './HandResultModal'
 import InfoPanel from './InfoPanel'
-import { ActionToast } from './ActionToast'
 import { ChipStack } from './ChipStack'
 import { playChip, playDeal, playCheck, playFold, playWin } from '../hooks/useSound'
 import type { ActionType, PlayerData } from '../types'
@@ -62,12 +61,25 @@ function computePositionLabels(players: PlayerData[], dealerPosition: number): s
 }
 
 // ── Chip animation token ─────────────────────────────────────────────────────
+
+/** Denomination colors matching ChipStack (radial-gradient bg + border color). */
+const CHIP_DENOMS_ANIM = [
+  { mult: 50, bg: 'radial-gradient(circle at 35% 35%, #a78bfa, #7c3aed)', border: '#c4b5fd' }, // 25BB purple
+  { mult: 10, bg: 'radial-gradient(circle at 35% 35%, #d1d5db, #4b5563)', border: '#d1d5db' }, // 5BB  gray
+  { mult:  2, bg: 'radial-gradient(circle at 35% 35%, #4ade80, #15803d)', border: '#4ade80' }, // 1BB  green
+  { mult:  1, bg: 'radial-gradient(circle at 35% 35%, #93c5fd, #1d4ed8)', border: '#93c5fd' }, // 0.5BB blue
+]
+const WIN_CHIP_STYLE = {
+  bg: 'radial-gradient(circle at 35% 35%, #fde68a, #b45309)',
+  border: '#fde68a',
+}
+
 interface ChipAnim {
   id: number
   from: { left: string; top: string }
   to:   { left: string; top: string }
-  /** 'bet' = player→pot (gold), 'win' = pot→player (green) */
-  variant: 'bet' | 'win'
+  chipBg: string
+  chipBorder: string
 }
 
 interface ChipTokenProps {
@@ -111,14 +123,12 @@ function ChipToken({ anim, onDone }: ChipTokenProps) {
         willChange: 'left, top',
       }}
     >
-      {/* Outer chip ring */}
+      {/* Poker chip disc */}
       <div
-        className="w-5 h-5 rounded-full shadow-lg border-2 border-dashed flex items-center justify-center"
+        className="w-5 h-5 rounded-full shadow-lg border-2 flex items-center justify-center"
         style={{
-          background: anim.variant === 'bet'
-            ? 'radial-gradient(circle at 35% 35%, #fde68a, #b45309)'
-            : 'radial-gradient(circle at 35% 35%, #86efac, #15803d)',
-          borderColor: anim.variant === 'bet' ? '#fde68a' : '#86efac',
+          background: anim.chipBg,
+          borderColor: anim.chipBorder,
         }}
       />
     </div>
@@ -178,12 +188,45 @@ export default function GameTable({ onAction: _onAction }: Props) {
   function spawnChip(
     from: { left: string; top: string },
     to:   { left: string; top: string },
-    variant: ChipAnim['variant'],
+    chipBg: string,
+    chipBorder: string,
     delayMs = 0,
   ) {
     const id = ++chipIdRef.current
-    const spawn = () => setChipAnims((prev) => [...prev, { id, from, to, variant }])
+    const spawn = () => setChipAnims((prev) => [...prev, { id, from, to, chipBg, chipBorder }])
     if (delayMs > 0) { setTimeout(spawn, delayMs) } else { spawn() }
+  }
+
+  /** Decompose `amount` into denominations and spawn appropriately-colored chips. */
+  function spawnChipsByDenom(
+    from: { left: string; top: string },
+    to:   { left: string; top: string },
+    amount: number,
+    startDelayMs = 0,
+  ) {
+    const halfBb = Math.max(1, Math.floor(bigBlind / 2))
+    let rem = Math.max(amount, 0)
+    let delay = startDelayMs
+    let spawned = 0
+    for (const d of CHIP_DENOMS_ANIM) {
+      const value = halfBb * d.mult
+      const n = Math.floor(rem / value)
+      if (n > 0) {
+        // Cap per-denomination tokens to 3 to avoid screen clutter
+        const toSpawn = Math.min(n, 3)
+        for (let i = 0; i < toSpawn; i++) {
+          spawnChip(from, to, d.bg, d.border, delay)
+          delay += 55
+          spawned++
+        }
+        rem -= n * value
+      }
+    }
+    // Fallback: always spawn at least one chip (lowest denom)
+    if (spawned === 0) {
+      const d = CHIP_DENOMS_ANIM[3]
+      spawnChip(from, to, d.bg, d.border, startDelayMs)
+    }
   }
 
   const POT_POS = { left: '50%', top: '50%' }
@@ -208,16 +251,21 @@ export default function GameTable({ onAction: _onAction }: Props) {
         text.startsWith('raises') ||
         text.startsWith('posts')
       ) {
-        if (seat) spawnChip(seat, POT_POS, 'bet')
+        // Parse the numeric amount from the log text
+        const amountMatch = text.match(/(\d+)$/)
+        const amount = amountMatch ? parseInt(amountMatch[1], 10) : bigBlind
+        if (seat) spawnChipsByDenom(seat, POT_POS, amount)
         playChip()
         continue
       }
 
       if (text === 'goes all-in') {
+        // For all-in, find player chips as proxy amount; burst 3 waves of mixed chips
+        const player = players.find((p) => p.name === entry.player)
+        const amount = player ? Math.max(player.current_bet, bigBlind) : bigBlind * 5
         if (seat) {
-          spawnChip(seat, POT_POS, 'bet', 0)
-          spawnChip(seat, POT_POS, 'bet', 70)
-          spawnChip(seat, POT_POS, 'bet', 140)
+          spawnChipsByDenom(seat, POT_POS, amount, 0)
+          spawnChipsByDenom(seat, POT_POS, amount, 90)
         }
         playChip()
         setTimeout(() => playChip(0.25), 80)
@@ -236,7 +284,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
     const winnerPos = seatPosRef.current[lastResult.winner]
     if (winnerPos) {
       for (let i = 0; i < 6; i++) {
-        spawnChip(POT_POS, winnerPos, 'win', i * 55)
+        spawnChip(POT_POS, winnerPos, WIN_CHIP_STYLE.bg, WIN_CHIP_STYLE.border, i * 55)
       }
     }
     playWin()
@@ -326,9 +374,6 @@ export default function GameTable({ onAction: _onAction }: Props) {
                   <PotDisplay />
                 </div>
               </div>
-
-              {/* Action toast — anchored inside the oval below the pot */}
-              <ActionToast />
 
               {/* Human player at bottom-center (fraction = 0.5) */}
               {humanEntry && (() => {
