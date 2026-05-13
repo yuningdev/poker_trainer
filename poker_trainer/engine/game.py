@@ -282,6 +282,9 @@ class Game:
         Handles:
             - Single winner (everyone else folded).
             - Multi-way showdown with hand comparison.
+            - Split pot (chop): tied hands divide the pot evenly; the odd
+              chip (if any) goes to the player seated earliest clockwise
+              from the small blind (the "upper position" / left of dealer).
             - Side pots for all-in players (excess chips returned to
               the stack-leader so they are never over-deducted).
         """
@@ -315,27 +318,28 @@ class Game:
 
         if not side_pots:
             # Fallback: single undivided pot → best overall hand wins.
-            best_player = max(hand_results, key=lambda p: hand_results[p])
+            # Support split pot (chop) when hands are tied.
             total = self.table.pot.total
-            best_player.receive_winnings(total)
-            self.renderer.show_hand_result(
-                best_player.name, hand_results[best_player].display(), total
+            distributed = self._split_pot_among_winners(
+                total, list(hand_results.keys()), hand_results
             )
+            for player, amount in distributed.items():
+                self.renderer.show_hand_result(
+                    player.name, hand_results[player].display(), amount
+                )
             return
 
-        # Award each side pot to the eligible player with the best hand.
+        # Award each side pot to the eligible player(s) with the best hand.
+        # Supports split pots within each side pot.
         awarded: Dict[BasePlayer, int] = {}
         for pot_amount, eligible in side_pots:
             # Only consider active (non-folded) players who are eligible.
-            contestants = [
-                (p, hand_results[p]) for p in eligible
-                if p.is_active and p in hand_results
-            ]
+            contestants = [p for p in eligible if p.is_active and p in hand_results]
             if not contestants:
                 continue
-            winner, _ = max(contestants, key=lambda x: x[1])
-            winner.receive_winnings(pot_amount)
-            awarded[winner] = awarded.get(winner, 0) + pot_amount
+            distributed = self._split_pot_among_winners(pot_amount, contestants, hand_results)
+            for p, amt in distributed.items():
+                awarded[p] = awarded.get(p, 0) + amt
 
         for player, total_won in awarded.items():
             hand_desc = (
@@ -344,6 +348,61 @@ class Game:
                 else "best hand"
             )
             self.renderer.show_hand_result(player.name, hand_desc, total_won)
+
+    def _split_pot_among_winners(
+        self,
+        pot_amount: int,
+        contestants: List["BasePlayer"],
+        hand_results: Dict["BasePlayer", HandResult],
+    ) -> Dict["BasePlayer", int]:
+        """
+        Award *pot_amount* to the best hand(s) among *contestants*.
+
+        If multiple players tie, split the pot evenly.  Any indivisible
+        remainder (odd chips) goes to the player(s) seated earliest clockwise
+        from the small blind (upper position / left of dealer).
+
+        Returns:
+            Dict mapping each winning player to the amount they received.
+            Chips are already credited to each winner's stack.
+        """
+        if not contestants:
+            return {}
+
+        # Find the best hand value among contestants.
+        best_result = max(hand_results[p] for p in contestants)
+
+        # All players who share the best hand.
+        winners = [p for p in contestants if hand_results[p] == best_result]
+
+        if len(winners) == 1:
+            winners[0].receive_winnings(pot_amount)
+            return {winners[0]: pot_amount}
+
+        # Split pot: divide evenly among tied winners.
+        share = pot_amount // len(winners)
+        remainder = pot_amount % len(winners)
+
+        # Odd chip goes to the winner(s) seated earliest clockwise from SB.
+        # We rank winners by their distance (seat index offset) from the
+        # small blind position, ascending (SB = distance 0).
+        sb_pos = self.table.small_blind_position
+        n = len(self.table.seats)
+
+        def seat_distance_from_sb(player: "BasePlayer") -> int:
+            idx = self.table.seats.index(player)
+            return (idx - sb_pos) % n
+
+        winners_sorted = sorted(winners, key=seat_distance_from_sb)
+
+        distributed: Dict["BasePlayer", int] = {}
+        for i, w in enumerate(winners_sorted):
+            # First `remainder` winners (closest to SB) each get one extra chip.
+            amount = share + (1 if i < remainder else 0)
+            w.receive_winnings(amount)
+            distributed[w] = amount
+
+        return distributed
 
     # ------------------------------------------------------------------
     # Helpers
