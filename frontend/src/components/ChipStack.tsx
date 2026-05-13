@@ -98,10 +98,10 @@ export function ChipStack({ chips, bigBlind, maxStack = 5, scale = 1 }: Props) {
   if (stacks.length === 0) return null
 
   // Chip disc dimensions (scaled)
-  const W   = Math.round(26 * scale)   // chip width (diameter from side)
-  const H   = Math.round(12 * scale)   // chip height (disc thickness from side)
+  const W   = Math.round(22 * scale)   // chip width (diameter from side)
+  const H   = Math.round(9  * scale)   // chip height (disc thickness from side)
   const GAP = Math.round(2  * scale)   // vertical gap between stacked discs
-  const WALL = Math.round(4 * scale)   // 3D bottom-wall thickness
+  const WALL = Math.round(3 * scale)   // 3D bottom-wall thickness
 
   return (
     <div className="flex items-end gap-1.5 justify-center flex-wrap">
