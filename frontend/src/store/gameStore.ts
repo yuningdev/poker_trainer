@@ -54,6 +54,9 @@ const initialState: GameState = {
   bufferedTableState: null,
   thinkingPlayer: null,
   thinkingPlayerName: null,
+  phaseChangeTick: 0,
+  phaseChangeBets: {},
+  displayBets: {},
   // Room state
   roomId: null,
   roomName: null,
@@ -175,6 +178,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           break
         }
         const humanBust = msg.players.some((p) => p.is_human && p.status === 'bust')
+        // Sync displayBets from authoritative server values
+        const displayBets = Object.fromEntries(msg.players.map((p) => [p.name, p.current_bet]))
         set({
           started: true,
           phase: msg.phase as Phase,
@@ -186,6 +191,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           humanEquity: msg.human_equity ?? null,
           bufferedTableState: null,
           currentRoundActions: {},
+          displayBets,
           // Clear pendingNewHand when table state is applied directly —
           // this unblocks the ActionPanel for hand #1 (no prior lastResult).
           pendingNewHand: null,
@@ -252,18 +258,47 @@ export const useGameStore = create<GameStore>((set, get) => ({
           // clicks "Next Hand", which would wipe out the winner's cards.
           showdown: s.lastResult !== null ? s.showdown : null,
           currentRoundActions: {},
+          phaseChangeTick: s.phaseChangeTick + 1,
+          // Snapshot displayBets (real-time accumulator) for the animation,
+          // then reset it so the bet area clears for the new street.
+          phaseChangeBets: { ...s.displayBets },
+          displayBets: {},
         }))
         break
 
       case 'ACTION_LOG': {
         const label = parseActionLabel(msg.text)
-        set((s) => ({
-          log: [...s.log, { id: _logId++, player: msg.player, text: msg.text }],
-          currentRoundActions: label
-            ? { ...s.currentRoundActions, [msg.player]: label }
-            : s.currentRoundActions,
-          thinkingPlayer: null,
-        }))
+        const { text, player } = msg
+        set((s) => {
+          // Parse bet amounts to keep displayBets in sync without waiting for TABLE_STATE.
+          // "posts ... X"  → absolute (blind posted)
+          // "calls X"      → incremental (add to existing bet)
+          // "raises to X"  → absolute total this round
+          // "goes all-in"  → mark as non-zero so badge shows; TABLE_STATE will correct it
+          let displayBets = s.displayBets
+          const postsMatch  = text.match(/^posts .+ (\d+)$/)
+          const callsMatch  = text.match(/^calls (\d+)$/)
+          const raisesMatch = text.match(/^raises to (\d+)$/)
+          if (postsMatch) {
+            displayBets = { ...displayBets, [player]: parseInt(postsMatch[1], 10) }
+          } else if (callsMatch) {
+            const prev = displayBets[player] ?? 0
+            displayBets = { ...displayBets, [player]: prev + parseInt(callsMatch[1], 10) }
+          } else if (raisesMatch) {
+            displayBets = { ...displayBets, [player]: parseInt(raisesMatch[1], 10) }
+          } else if (text === 'goes all-in') {
+            // Amount unknown until TABLE_STATE; use existing or 1 as non-zero sentinel
+            displayBets = { ...displayBets, [player]: displayBets[player] ?? 1 }
+          }
+          return {
+            log: [...s.log, { id: _logId++, player, text }],
+            currentRoundActions: label
+              ? { ...s.currentRoundActions, [player]: label }
+              : s.currentRoundActions,
+            thinkingPlayer: null,
+            displayBets,
+          }
+        })
         break
       }
 
@@ -289,6 +324,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           handNum: msg.hand_num,
           pendingNewHand: msg,
           thinkingPlayer: null,
+          displayBets: {},
           log: [
             ...s.log,
             { id: _logId++, player: '—', text: `Hand #${msg.hand_num} begins` },

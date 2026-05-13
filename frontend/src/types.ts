@@ -215,4 +215,7 @@ export interface GameState {
   myPlayerId: string
   timeRemaining: number | null
   isCurrentPlayerHost: boolean
+  phaseChangeTick: number          // increments on each PHASE_CHANGE
+  phaseChangeBets: Record<string, number>  // player name → current_bet snapshot at PHASE_CHANGE
+  displayBets: Record<string, number>      // real-time bet accumulator updated from ACTION_LOG
 }

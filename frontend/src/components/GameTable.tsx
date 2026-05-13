@@ -7,7 +7,6 @@ import PotDisplay from './PotDisplay'
 import ActionLog from './ActionLog'
 import HandResultModal from './HandResultModal'
 import InfoPanel from './InfoPanel'
-import { ChipStack } from './ChipStack'
 import { playChip, playDeal, playCheck, playFold, playWin } from '../hooks/useSound'
 import type { ActionType, PlayerData } from '../types'
 
@@ -135,15 +134,27 @@ function ChipToken({ anim, onDone }: ChipTokenProps) {
   )
 }
 
+// ── Bet badge ─────────────────────────────────────────────────────────────────
+/** Compact chip+amount label shown in the bet area in front of each player. */
+function BetBadge({ amount }: { amount: number }) {
+  return (
+    <div className="flex items-center gap-1 bg-[#0d1829]/90 rounded-full px-1.5 py-0.5 shadow-md border border-[#2a4060] whitespace-nowrap">
+      <div className="w-2.5 h-2.5 rounded-full bg-[#4a7fa5] shrink-0" />
+      <span className="text-gray-200 font-bold text-[11px] leading-none">{amount}</span>
+    </div>
+  )
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
-/** Position halfway between the seat and pot center (for bet-chip display). */
+/** Position in front of each player's seat, towards the pot center.
+ *  rx/ry ~75% of the seat oval → clearly "bet zone", not overlapping pot. */
 function betPosition(fraction: number): { left: string; top: string } {
-  return ovalPosition(fraction, 0.20, 0.17)
+  return ovalPosition(fraction, 0.33, 0.27)
 }
 
 export default function GameTable({ onAction: _onAction }: Props) {
   const store = useGameStore()
-  const { players, dealerPosition, currentRoundActions, pendingNewHand, log, lastResult, dealRevision, roomConfig } = store
+  const { players, dealerPosition, currentRoundActions, pendingNewHand, log, lastResult, dealRevision, roomConfig, phaseChangeTick, phaseChangeBets, displayBets } = store
   const bigBlind = roomConfig?.big_blind ?? 20
   const n = players.length
   const dealerName = players[dealerPosition]?.name ?? ''
@@ -170,12 +181,20 @@ export default function GameTable({ onAction: _onAction }: Props) {
   // Keep a ref to the current seat→position map so effects can read it without
   // being re-triggered every render.
   const seatPosRef = useRef<Record<string, { left: string; top: string }>>({})
-  const map: Record<string, { left: string; top: string }> = {}
-  if (humanEntry) map[humanEntry.player.name] = ovalPosition(0.5)
+  const betPosRef  = useRef<Record<string, { left: string; top: string }>>({})
+  const seatMap: Record<string, { left: string; top: string }> = {}
+  const betMap:  Record<string, { left: string; top: string }> = {}
+  if (humanEntry) {
+    seatMap[humanEntry.player.name] = ovalPosition(0.5)
+    betMap[humanEntry.player.name]  = betPosition(0.5)
+  }
   opponentEntries.forEach(({ player }, idx) => {
-    map[player.name] = ovalPosition(opponentFraction(idx))
+    const frac = opponentFraction(idx)
+    seatMap[player.name] = ovalPosition(frac)
+    betMap[player.name]  = betPosition(frac)
   })
-  seatPosRef.current = map
+  seatPosRef.current = seatMap
+  betPosRef.current  = betMap
 
   // ── Chip animations ──────────────────────────────────────────────────────────
   const [chipAnims, setChipAnims] = useState<ChipAnim[]>([])
@@ -209,14 +228,15 @@ export default function GameTable({ onAction: _onAction }: Props) {
     let delay = startDelayMs
     let spawned = 0
     for (const d of CHIP_DENOMS_ANIM) {
+      if (spawned >= 4) break  // cap total tokens to keep it tidy
       const value = halfBb * d.mult
       const n = Math.floor(rem / value)
       if (n > 0) {
-        // Cap per-denomination tokens to 3 to avoid screen clutter
-        const toSpawn = Math.min(n, 3)
+        // Cap per-denomination tokens to 2 to avoid screen clutter
+        const toSpawn = Math.min(n, 2, 4 - spawned)
         for (let i = 0; i < toSpawn; i++) {
           spawnChip(from, to, d.bg, d.border, delay)
-          delay += 55
+          delay += 60
           spawned++
         }
         rem -= n * value
@@ -251,21 +271,24 @@ export default function GameTable({ onAction: _onAction }: Props) {
         text.startsWith('raises') ||
         text.startsWith('posts')
       ) {
-        // Parse the numeric amount from the log text
+        // Chips fly seat → bet area (halfway to pot), not directly to pot.
+        // They merge into the pot on the next PHASE_CHANGE.
         const amountMatch = text.match(/(\d+)$/)
         const amount = amountMatch ? parseInt(amountMatch[1], 10) : bigBlind
-        if (seat) spawnChipsByDenom(seat, POT_POS, amount)
+        const betPos = betPosRef.current[entry.player] ?? POT_POS
+        if (seat) spawnChipsByDenom(seat, betPos, amount)
         playChip()
         continue
       }
 
       if (text === 'goes all-in') {
-        // For all-in, find player chips as proxy amount; burst 3 waves of mixed chips
+        // For all-in, burst chips from seat → bet area
         const player = players.find((p) => p.name === entry.player)
         const amount = player ? Math.max(player.current_bet, bigBlind) : bigBlind * 5
+        const betPos = betPosRef.current[entry.player] ?? POT_POS
         if (seat) {
-          spawnChipsByDenom(seat, POT_POS, amount, 0)
-          spawnChipsByDenom(seat, POT_POS, amount, 90)
+          spawnChipsByDenom(seat, betPos, amount, 0)
+          spawnChipsByDenom(seat, betPos, amount, 90)
         }
         playChip()
         setTimeout(() => playChip(0.25), 80)
@@ -274,6 +297,24 @@ export default function GameTable({ onAction: _onAction }: Props) {
       }
     }
   }, [log])
+
+  // ── Watch PHASE_CHANGE → bet-area chips fly to pot ──────────────────────────
+  const prevPhaseTickRef = useRef(phaseChangeTick)
+  useEffect(() => {
+    if (phaseChangeTick === prevPhaseTickRef.current) return
+    prevPhaseTickRef.current = phaseChangeTick
+
+    // Animate each player's bet chips from the bet area into the pot center
+    let delay = 0
+    for (const [name, betAmt] of Object.entries(phaseChangeBets)) {
+      if (betAmt <= 0) continue
+      const betPos = betPosRef.current[name]
+      if (!betPos) continue
+      spawnChipsByDenom(betPos, POT_POS, betAmt, delay)
+      delay += 60
+    }
+    if (delay > 0) playChip()
+  }, [phaseChangeTick])
 
   // ── Watch HAND_RESULT → chips fly pot→winner + win sound ────────────────────
   const lastResultRef = useRef(lastResult)
@@ -327,40 +368,41 @@ export default function GameTable({ onAction: _onAction }: Props) {
               style={{ paddingBottom: 'min(65%, 560px)' }}
             >
               {/* Oval table felt */}
-              <div className="absolute inset-0 rounded-[50%] bg-[#1a3329] border-4 border-[#c9a84c] shadow-2xl shadow-black/80" />
+              <div className="absolute inset-0 rounded-[50%] bg-[#0d1829] border-2 border-[#1e3350] shadow-2xl shadow-black/80" />
 
               {/* Table inner ring (decorative) */}
-              <div className="absolute inset-[8%] rounded-[50%] border-2 border-[#c9a84c]/25 pointer-events-none" />
+              <div className="absolute inset-[8%] rounded-[50%] border border-white/5 pointer-events-none" />
 
               {/* Chip animation layer — lives inside the oval container */}
               {chipAnims.map((anim) => (
                 <ChipToken key={anim.id} anim={anim} onDone={removeChip} />
               ))}
 
-              {/* Bet-area chip stacks: each player's current_bet shown halfway
-                  between their seat and the pot center */}
-              {humanEntry && humanEntry.player.current_bet > 0 && (() => {
+              {/* Bet badges: compact chip+amount label in front of each player.
+                  Use displayBets (real-time accumulator) so bot bets show immediately. */}
+              {humanEntry && (displayBets[humanEntry.player.name] ?? 0) > 0 && (() => {
                 const pos = betPosition(0.5)
                 return (
                   <div
-                    className="absolute pointer-events-none z-15"
+                    className="absolute pointer-events-none z-20"
                     style={{ left: pos.left, top: pos.top, transform: 'translate(-50%, -50%)' }}
                   >
-                    <ChipStack chips={humanEntry.player.current_bet} bigBlind={bigBlind} maxStack={3} scale={0.9} />
+                    <BetBadge amount={displayBets[humanEntry.player.name]} />
                   </div>
                 )
               })()}
               {opponentEntries.map(({ player }, opponentIdx) => {
-                if (player.current_bet <= 0) return null
+                const betAmt = displayBets[player.name] ?? 0
+                if (betAmt <= 0) return null
                 const fraction = opponentFraction(opponentIdx)
                 const pos = betPosition(fraction)
                 return (
                   <div
                     key={`bet-${player.name}`}
-                    className="absolute pointer-events-none z-15"
+                    className="absolute pointer-events-none z-20"
                     style={{ left: pos.left, top: pos.top, transform: 'translate(-50%, -50%)' }}
                   >
-                    <ChipStack chips={player.current_bet} bigBlind={bigBlind} maxStack={3} scale={0.9} />
+                    <BetBadge amount={betAmt} />
                   </div>
                 )
               })}
