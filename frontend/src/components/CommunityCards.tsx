@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { useGameStore } from '../store/gameStore'
 import { useDealContext } from '../context/DealContext'
+import { useIsLandscapePhone } from '../hooks/useIsLandscapePhone'
 import Card from './Card'
 
 export default function CommunityCards() {
   const { communityCards, phase } = useGameStore()
   const dealCtx = useDealContext()
+  const isLS = useIsLandscapePhone()
 
   // Track previous count to detect newly revealed cards
   const prevCountRef = useRef(0)
@@ -15,12 +17,14 @@ export default function CommunityCards() {
     prevCountRef.current = communityCards.length
   }, [communityCards.length])
 
+  const cardSize = isLS ? 'xs' : 'sm'
+
   return (
-    <div className="flex flex-col items-center gap-1 sm:gap-2">
-      <span className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-widest">
+    <div className="flex flex-col items-center gap-0.5 sm:gap-1">
+      <span className="text-[9px] sm:text-xs text-gray-400 uppercase tracking-widest">
         {phase.replace('_', ' ')}
       </span>
-      <div className="flex gap-1 sm:gap-2">
+      <div className="flex gap-0.5 sm:gap-1">
         {Array.from({ length: 5 }).map((_, i) => {
           const card = communityCards[i]
           const isNew = card !== undefined && i >= prevCount
@@ -32,7 +36,7 @@ export default function CommunityCards() {
               key={card ? `${card.rank}-${card.suit}` : `empty-${i}`}
               card={card}
               faceDown={!card}
-              size="md"
+              size={cardSize}
               dealDelay={delay}
               getDealerEl={isNew ? dealCtx?.getDealerEl : undefined}
             />

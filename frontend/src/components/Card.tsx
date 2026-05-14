@@ -4,13 +4,14 @@ import type { CardData } from '../types'
 interface Props {
   card?: CardData
   faceDown?: boolean
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'md' | 'lg'
   dealDelay?: number
   getDealerEl?: () => HTMLDivElement | null
 }
 
 const SIZE = {
-  sm: 'w-10 h-14 text-xs sm:w-12 sm:h-16 sm:text-sm',
+  xs: 'w-8 h-11 text-[10px]',
+  sm: 'w-10 h-14 text-xs',
   md: 'w-12 h-16 text-sm sm:w-14 sm:h-20 sm:text-base',
   lg: 'w-14 h-20 text-sm sm:w-16 sm:h-24 sm:text-base',
 }

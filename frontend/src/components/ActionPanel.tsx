@@ -53,8 +53,9 @@ export default function ActionPanel({ onAction }: Props) {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-[#0d1117]/97 border-t border-[#2a3347] p-3 sm:p-4 z-30">
-      <div className="max-w-lg mx-auto flex flex-col gap-2 sm:gap-3">
+    <div className="fixed bottom-0 left-0 right-0 bg-[#0d1117]/97 border-t border-[#2a3347]
+      p-3 sm:p-4 [@media(max-height:500px)]:p-1.5 z-30">
+      <div className="max-w-lg mx-auto flex flex-col gap-2 [@media(max-height:500px)]:gap-1">
         {/* Timer bar */}
         {timeRemaining !== null && roomConfig?.time_bank ? (
           <TimerBar seconds={timeRemaining} total={roomConfig.time_bank} />
@@ -62,7 +63,7 @@ export default function ActionPanel({ onAction }: Props) {
 
         {/* Call info */}
         {call_amount > 0 && (
-          <div className="text-center text-sm text-gray-400">
+          <div className="text-center text-xs [@media(max-height:500px)]:text-[10px] text-gray-400">
             Call: <span className="text-white font-semibold">{call_amount}</span>
           </div>
         )}
@@ -78,7 +79,7 @@ export default function ActionPanel({ onAction }: Props) {
         )}
 
         {/* Action buttons — min 44px height for mobile touch targets */}
-        <div className="flex gap-2 justify-center flex-wrap">
+        <div className="flex gap-1.5 [@media(max-height:500px)]:gap-1 justify-center flex-wrap">
           {legal_actions.map((action) => (
             <button
               key={action}
@@ -90,8 +91,12 @@ export default function ActionPanel({ onAction }: Props) {
                   handleAction(action)
                 }
               }}
-              className={`min-h-[44px] px-4 sm:px-5 py-2 rounded-lg text-white font-semibold text-sm sm:text-base transition
-                ${ACTION_COLOR[action] ?? 'bg-gray-600 hover:bg-gray-500'}`}
+              className={`min-h-[44px] [@media(max-height:500px)]:min-h-[34px]
+                px-4 [@media(max-height:500px)]:px-3
+                py-2 [@media(max-height:500px)]:py-0.5
+                rounded-lg text-white font-semibold
+                text-sm [@media(max-height:500px)]:text-xs
+                transition ${ACTION_COLOR[action] ?? 'bg-gray-600 hover:bg-gray-500'}`}
             >
               {ACTION_LABEL[action]}
               {action === 'call' && call_amount > 0 && ` (${call_amount})`}
@@ -101,7 +106,11 @@ export default function ActionPanel({ onAction }: Props) {
           {showRaise && (
             <button
               onClick={() => handleAction('raise')}
-              className="min-h-[44px] px-4 sm:px-5 py-2 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-semibold text-sm sm:text-base"
+              className="min-h-[44px] [@media(max-height:500px)]:min-h-[34px]
+                px-4 [@media(max-height:500px)]:px-3
+                py-2 [@media(max-height:500px)]:py-0.5
+                rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-semibold
+                text-sm [@media(max-height:500px)]:text-xs"
             >
               Confirm {raiseAmount || min_raise}
             </button>

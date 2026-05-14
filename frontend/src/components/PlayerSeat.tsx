@@ -11,6 +11,7 @@ interface Props {
   positionLabel?: string
   equity?: number | null
   actionLabel?: string | null
+  compact?: boolean
 }
 
 // Position badge colours
@@ -45,7 +46,7 @@ function actionToastColor(label: string): string {
   return 'text-gray-300'
 }
 
-export default function PlayerSeat({ player, dealDelays, positionLabel, actionLabel }: Props) {
+export default function PlayerSeat({ player, dealDelays, positionLabel, actionLabel, compact = false }: Props) {
   const {
     showdown, pendingAction, dealRevision, started, lastResult,
     pendingNewHand, thinkingPlayer, thinkingPlayerName, roomConfig,
@@ -116,6 +117,61 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
   // BOT LAYOUT — info panel on top, chip stacks floating below on the felt
   // ════════════════════════════════════════════════════════════════════════════
   if (!player.is_human) {
+    if (compact) {
+      // Compact bot layout for landscape phone
+      return (
+        <div ref={handleRef} className="relative flex flex-col items-center gap-1">
+          {positionBadge}
+          {flashToast}
+          <div className={`
+            flex flex-col items-center gap-0.5 px-1.5 pt-1.5 pb-1 rounded-xl
+            w-[68px]
+            bg-[#1b2333] border border-[#2a3347]/80
+            shadow-lg shadow-black/60
+            ${isFolded || isBust ? 'opacity-40' : ''}
+            ${isThinking ? 'ring-2 ring-yellow-400/50 scale-105 animate-pulse' : ''}
+            transition-transform duration-200
+          `}>
+            <img
+              src={avatarUrl}
+              alt={player.name}
+              className="w-6 h-6 rounded-full object-cover bg-[#2a3347]"
+            />
+            <span className="text-white font-semibold text-[9px] truncate w-full text-center leading-none">
+              {player.name}
+            </span>
+            {isThinking && (
+              <span className="flex gap-0.5 items-center">
+                <span className="w-1 h-1 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1 h-1 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1 h-1 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </span>
+            )}
+            {showdownInfo?.hole_cards && showdownInfo.hole_cards.length > 0 && (
+              <div className="flex gap-0.5 justify-center">
+                {showdownInfo.hole_cards.map((c, i) => (
+                  <Card key={i} card={c} size="xs" dealDelay={0} getDealerEl={dealCtx?.getDealerEl} />
+                ))}
+              </div>
+            )}
+            {showdownInfo && (
+              <span className="text-[8px] text-gray-300 text-center leading-tight">
+                {showdownInfo.hand_description}
+              </span>
+            )}
+            {actionLabel && (
+              <span className={`text-[8px] font-bold px-1 py-0.5 rounded-md ${actionLabelStyle(actionLabel)}`}>
+                {actionLabel}
+              </span>
+            )}
+            <span className="text-[#c9a84c] font-bold text-[10px] leading-none pb-0.5">
+              {player.chips}
+            </span>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div ref={handleRef} className="relative flex flex-col items-center gap-1.5">
         {positionBadge}
@@ -193,6 +249,80 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
   // HUMAN LAYOUT — larger panel, cards + chips inside
   // ════════════════════════════════════════════════════════════════════════════
   const displayCards = showdownInfo?.hole_cards ?? player.hole_cards
+
+  if (compact) {
+    // Compact human layout for landscape phone
+    return (
+      <div
+        ref={handleRef}
+        className={`
+          relative flex flex-col items-center gap-1 px-2 pt-2 pb-1.5 rounded-2xl
+          w-[100px]
+          bg-[#1b2333] border-2 border-[#c9a84c]/35
+          shadow-xl shadow-black/70
+          ${isWaiting ? 'ring-2 ring-white/50' : ''}
+          transition-transform duration-200
+        `}
+      >
+        {positionBadge}
+        <span className="absolute -top-3 -right-3 z-20 text-[10px] px-1.5 py-0.5 rounded-full
+          bg-[#c9a84c]/20 text-[#c9a84c] font-bold border border-[#c9a84c]/40 whitespace-nowrap">
+          You
+        </span>
+        {flashToast}
+
+        {/* Avatar + name row */}
+        <div className="flex items-center gap-1 w-full">
+          <img
+            src={avatarUrl}
+            alt={player.name}
+            className="w-5 h-5 rounded-full object-cover bg-[#2a3347] shrink-0"
+          />
+          <span className="text-white font-semibold text-[9px] truncate flex-1 leading-none">
+            {player.name}
+          </span>
+        </div>
+
+        {/* Hole cards */}
+        <div className="flex gap-1 justify-center">
+          {displayCards.length > 0 ? (
+            displayCards.map((c, i) => (
+              <Card
+                key={`${dealRevision}-${i}`}
+                card={c}
+                size="xs"
+                dealDelay={dealDelays[i] ?? 0}
+                getDealerEl={dealCtx?.getDealerEl}
+              />
+            ))
+          ) : player.status !== 'folded' ? (
+            <>
+              <Card key={`${dealRevision}-back-0`} faceDown size="xs" dealDelay={dealDelays[0]} getDealerEl={dealCtx?.getDealerEl} />
+              <Card key={`${dealRevision}-back-1`} faceDown size="xs" dealDelay={dealDelays[1]} getDealerEl={dealCtx?.getDealerEl} />
+            </>
+          ) : (
+            <span className="text-[9px] text-gray-500 py-1">folded</span>
+          )}
+        </div>
+
+        {showdownInfo && (
+          <span className="text-[8px] text-gray-300 text-center leading-tight">
+            {showdownInfo.hand_description}
+          </span>
+        )}
+
+        {actionLabel && (
+          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-md ${actionLabelStyle(actionLabel)}`}>
+            {actionLabel}
+          </span>
+        )}
+
+        <span className="text-[#c9a84c] font-bold text-[10px] leading-none">
+          {player.chips}
+        </span>
+      </div>
+    )
+  }
 
   return (
     <div

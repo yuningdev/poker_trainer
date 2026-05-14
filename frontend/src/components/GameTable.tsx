@@ -8,6 +8,7 @@ import ActionLog from './ActionLog'
 import HandResultModal from './HandResultModal'
 import InfoPanel from './InfoPanel'
 import { playChip, playDeal, playCheck, playFold, playWin } from '../hooks/useSound'
+import { useIsLandscapePhone } from '../hooks/useIsLandscapePhone'
 import type { ActionType, PlayerData } from '../types'
 
 interface Props {
@@ -146,18 +147,23 @@ function BetBadge({ amount }: { amount: number }) {
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
-/** Position in front of each player's seat, towards the pot center.
- *  rx/ry ~75% of the seat oval → clearly "bet zone", not overlapping pot. */
-function betPosition(fraction: number): { left: string; top: string } {
-  return ovalPosition(fraction, 0.33, 0.27)
-}
-
 export default function GameTable({ onAction: _onAction }: Props) {
   const store = useGameStore()
   const { players, dealerPosition, currentRoundActions, pendingNewHand, log, lastResult, dealRevision, roomConfig, phaseChangeTick, phaseChangeBets, displayBets } = store
   const bigBlind = roomConfig?.big_blind ?? 20
   const n = players.length
   const dealerName = players[dealerPosition]?.name ?? ''
+
+  const isLS = useIsLandscapePhone()
+
+  // ── Landscape-aware oval radii ───────────────────────────────────────────────
+  const RX  = isLS ? 0.42 : 0.44  // horizontal seat radius
+  const RY  = isLS ? 0.26 : 0.40  // vertical seat radius
+  const BRX = isLS ? 0.30 : 0.33  // bet badge horizontal radius
+  const BRY = isLS ? 0.18 : 0.27  // bet badge vertical radius
+
+  const seatPos = (f: number) => ovalPosition(f, RX, RY)
+  const betPos  = (f: number) => ovalPosition(f, BRX, BRY)
 
   const sbIndex = findSmallBlindIndex(players, dealerPosition)
   const positionLabels = computePositionLabels(players, dealerPosition)
@@ -185,13 +191,13 @@ export default function GameTable({ onAction: _onAction }: Props) {
   const seatMap: Record<string, { left: string; top: string }> = {}
   const betMap:  Record<string, { left: string; top: string }> = {}
   if (humanEntry) {
-    seatMap[humanEntry.player.name] = ovalPosition(0.5)
-    betMap[humanEntry.player.name]  = betPosition(0.5)
+    seatMap[humanEntry.player.name] = seatPos(0.5)
+    betMap[humanEntry.player.name]  = betPos(0.5)
   }
   opponentEntries.forEach(({ player }, idx) => {
     const frac = opponentFraction(idx)
-    seatMap[player.name] = ovalPosition(frac)
-    betMap[player.name]  = betPosition(frac)
+    seatMap[player.name] = seatPos(frac)
+    betMap[player.name]  = betPos(frac)
   })
   seatPosRef.current = seatMap
   betPosRef.current  = betMap
@@ -275,8 +281,8 @@ export default function GameTable({ onAction: _onAction }: Props) {
         // They merge into the pot on the next PHASE_CHANGE.
         const amountMatch = text.match(/(\d+)$/)
         const amount = amountMatch ? parseInt(amountMatch[1], 10) : bigBlind
-        const betPos = betPosRef.current[entry.player] ?? POT_POS
-        if (seat) spawnChipsByDenom(seat, betPos, amount)
+        const bp = betPosRef.current[entry.player] ?? POT_POS
+        if (seat) spawnChipsByDenom(seat, bp, amount)
         playChip()
         continue
       }
@@ -285,10 +291,10 @@ export default function GameTable({ onAction: _onAction }: Props) {
         // For all-in, burst chips from seat → bet area
         const player = players.find((p) => p.name === entry.player)
         const amount = player ? Math.max(player.current_bet, bigBlind) : bigBlind * 5
-        const betPos = betPosRef.current[entry.player] ?? POT_POS
+        const bp = betPosRef.current[entry.player] ?? POT_POS
         if (seat) {
-          spawnChipsByDenom(seat, betPos, amount, 0)
-          spawnChipsByDenom(seat, betPos, amount, 90)
+          spawnChipsByDenom(seat, bp, amount, 0)
+          spawnChipsByDenom(seat, bp, amount, 90)
         }
         playChip()
         setTimeout(() => playChip(0.25), 80)
@@ -308,9 +314,9 @@ export default function GameTable({ onAction: _onAction }: Props) {
     let delay = 0
     for (const [name, betAmt] of Object.entries(phaseChangeBets)) {
       if (betAmt <= 0) continue
-      const betPos = betPosRef.current[name]
-      if (!betPos) continue
-      spawnChipsByDenom(betPos, POT_POS, betAmt, delay)
+      const bp = betPosRef.current[name]
+      if (!bp) continue
+      spawnChipsByDenom(bp, POT_POS, betAmt, delay)
       delay += 60
     }
     if (delay > 0) playChip()
@@ -359,13 +365,17 @@ export default function GameTable({ onAction: _onAction }: Props) {
 
   return (
     <DealProvider dealerName={dealerName}>
-      <div className="min-h-screen bg-[#0d1117] text-white flex flex-col overflow-x-hidden">
-        <div className="flex flex-1 gap-0 min-h-screen">
+      <div className={`${isLS ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-[#0d1117] text-white flex flex-col overflow-x-hidden`}>
+        <div className={`flex flex-1 gap-0 ${isLS ? 'h-dvh' : 'min-h-screen'}`}>
           {/* ── Main table area ── */}
-          <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-6 pb-28 sm:pb-32">
+          <div className={`flex-1 flex flex-col items-center justify-center min-h-0
+            ${isLS ? 'p-1 pb-[52px]' : 'p-2 sm:p-6 pb-28 sm:pb-32'}`}>
             <div
-              className="relative w-full max-w-[900px]"
-              style={{ paddingBottom: 'min(65%, 560px)' }}
+              className={`relative w-full ${isLS ? '' : 'max-w-[900px]'}`}
+              style={isLS
+                ? { height: 'calc(100dvh - 56px)', maxWidth: '100%' }
+                : { paddingBottom: 'min(65%, 560px)', maxWidth: '900px' }
+              }
             >
               {/* Oval table felt */}
               <div className="absolute inset-0 rounded-[50%] bg-[#0d1829] border-2 border-[#1e3350] shadow-2xl shadow-black/80" />
@@ -381,7 +391,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
               {/* Bet badges: compact chip+amount label in front of each player.
                   Use displayBets (real-time accumulator) so bot bets show immediately. */}
               {humanEntry && (displayBets[humanEntry.player.name] ?? 0) > 0 && (() => {
-                const pos = betPosition(0.5)
+                const pos = betPos(0.5)
                 return (
                   <div
                     className="absolute pointer-events-none z-20"
@@ -395,7 +405,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
                 const betAmt = displayBets[player.name] ?? 0
                 if (betAmt <= 0) return null
                 const fraction = opponentFraction(opponentIdx)
-                const pos = betPosition(fraction)
+                const pos = betPos(fraction)
                 return (
                   <div
                     key={`bet-${player.name}`}
@@ -419,7 +429,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
 
               {/* Human player at bottom-center (fraction = 0.5) */}
               {humanEntry && (() => {
-                const pos = ovalPosition(0.5)
+                const pos = seatPos(0.5)
                 return (
                   <div
                     key={humanEntry.player.name}
@@ -431,6 +441,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
                       dealDelays={dealDelaysFor(humanEntry.seatIndex)}
                       positionLabel={positionLabels[humanEntry.seatIndex]}
                       actionLabel={currentRoundActions[humanEntry.player.name] ?? null}
+                      compact={isLS}
                     />
                   </div>
                 )
@@ -439,7 +450,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
               {/* Opponents distributed clockwise around the oval */}
               {opponentEntries.map(({ player, seatIndex }, opponentIdx) => {
                 const fraction = opponentFraction(opponentIdx)
-                const pos = ovalPosition(fraction)
+                const pos = seatPos(fraction)
                 return (
                   <div
                     key={player.name}
@@ -451,6 +462,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
                       dealDelays={dealDelaysFor(seatIndex)}
                       positionLabel={positionLabels[seatIndex]}
                       actionLabel={currentRoundActions[player.name] ?? null}
+                      compact={isLS}
                     />
                   </div>
                 )
@@ -458,9 +470,9 @@ export default function GameTable({ onAction: _onAction }: Props) {
             </div>
           </div>
 
-          {/* ── Action log sidebar (sm+) ── */}
+          {/* ── Action log sidebar (sm+ only, hidden in landscape) ── */}
           <div
-            className={`hidden sm:flex border-l border-[#1e2433] bg-[#0d1117]/80 flex-col shrink-0 transition-all duration-300 ${logOpen ? 'w-52' : 'w-8'}`}
+            className={`${isLS ? 'hidden' : 'hidden sm:flex'} border-l border-[#1e2433] bg-[#0d1117]/80 flex-col shrink-0 transition-all duration-300 ${logOpen ? 'w-52' : 'w-8'}`}
           >
             {logOpen ? (
               <>
