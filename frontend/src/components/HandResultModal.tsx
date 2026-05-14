@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import type { CardData } from '../types'
 
@@ -7,7 +8,7 @@ function BigCard({ card, small = false }: { card: CardData; small?: boolean }) {
     ? 'w-12 h-[72px]'
     : 'w-16 h-24'
   return (
-    <div className={`${sizeClass} rounded-xl border-2 border-gray-300 bg-white shadow-lg flex flex-col justify-between p-1.5 select-none ${isRed ? 'text-red-500' : 'text-gray-900'}`}>
+    <div className={`${sizeClass} rounded-xl border-2 border-gray-300 bg-white shadow-lg flex flex-col justify-between p-1.5 select-none overflow-hidden ${isRed ? 'text-red-500' : 'text-gray-900'}`}>
       <div className="text-sm font-bold leading-none">{card.rank}<br/><span className="text-base">{card.suit}</span></div>
       <div className={`${small ? 'text-2xl' : 'text-3xl'} text-center leading-none`}>{card.suit}</div>
       <div className="text-sm font-bold leading-none self-end rotate-180">{card.rank}<br/><span className="text-base">{card.suit}</span></div>
@@ -25,7 +26,8 @@ interface Props {
  * Host (or single-player) clicks "Next Hand" to advance; guests see a waiting message.
  */
 export default function HandResultModal({ onFlush }: Props) {
-  const { lastResult, pendingNewHand, showdown, communityCards, players, isCurrentPlayerHost } = useGameStore()
+  const navigate = useNavigate()
+  const { lastResult, pendingNewHand, showdown, communityCards, players, isCurrentPlayerHost, displayChips } = useGameStore()
 
   // Only show when we have a result AND the next hand is queued
   if (!lastResult || !pendingNewHand) return null
@@ -36,6 +38,14 @@ export default function HandResultModal({ onFlush }: Props) {
   const humanPlayer = players.find((p) => p.is_human)
   const humanShowdown = humanPlayer ? showdown?.find((s) => s.name === humanPlayer.name) : undefined
   const humanIsWinner = humanPlayer?.name === lastResult.winner
+
+  // Detect bust: displayChips tracks real-time chip counts from ACTION_LOG.
+  // If human's chips hit 0 this hand (before next TABLE_STATE is applied),
+  // offer "Continue Watching" / "New Game" instead of the normal "Next Hand".
+  const humanChips = humanPlayer
+    ? (displayChips[humanPlayer.name] ?? humanPlayer.chips)
+    : 1
+  const humanJustBust = humanChips === 0
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
@@ -89,14 +99,32 @@ export default function HandResultModal({ onFlush }: Props) {
         )}
 
         {/* Action button */}
-        <div className="text-center mt-2">
+        <div className="flex flex-col items-center gap-2 mt-2">
           {isCurrentPlayerHost ? (
-            <button
-              onClick={onFlush}
-              className="px-8 py-3 bg-yellow-600 hover:bg-yellow-500 text-white font-bold rounded-xl transition text-base"
-            >
-              Next Hand &rarr;
-            </button>
+            humanJustBust ? (
+              <>
+                <p className="text-red-400 text-sm font-semibold mb-1">You've run out of chips</p>
+                <button
+                  onClick={onFlush}
+                  className="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl transition text-base w-full max-w-xs"
+                >
+                  Continue Watching
+                </button>
+                <button
+                  onClick={() => navigate('/')}
+                  className="px-8 py-3 bg-yellow-600 hover:bg-yellow-500 text-white font-bold rounded-xl transition text-base w-full max-w-xs"
+                >
+                  New Game
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={onFlush}
+                className="px-8 py-3 bg-yellow-600 hover:bg-yellow-500 text-white font-bold rounded-xl transition text-base"
+              >
+                Next Hand &rarr;
+              </button>
+            )
           ) : (
             <p className="text-gray-400 text-sm animate-pulse">
               Waiting for host to start next hand...
