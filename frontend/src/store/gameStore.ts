@@ -57,6 +57,7 @@ const initialState: GameState = {
   phaseChangeTick: 0,
   phaseChangeBets: {},
   displayBets: {},
+  displayChips: {},
   potBase: 0,
   // Room state
   roomId: null,
@@ -66,7 +67,6 @@ const initialState: GameState = {
   roomStatus: null,
   hostId: null,
   myPlayerId: _myPlayerId,
-  timeRemaining: null,
   isCurrentPlayerHost: false,
 }
 
@@ -80,7 +80,6 @@ interface GameStore extends GameState {
   setWelcome: (msg: WelcomeMsg) => void
   addRoomPlayer: (player: { player_id: string; name: string }) => void
   removeRoomPlayer: (player_id: string) => void
-  setTimeRemaining: (seconds: number | null) => void
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -164,8 +163,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     roomPlayers: s.roomPlayers.filter((p) => p.player_id !== player_id),
   })),
 
-  setTimeRemaining: (seconds) => set({ timeRemaining: seconds }),
-
   dispatch: (msg: ServerMessage) => {
     switch (msg.type) {
       case 'TABLE_STATE': {
@@ -179,8 +176,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
           break
         }
         const humanBust = msg.players.some((p) => p.is_human && p.status === 'bust')
-        // Sync displayBets from authoritative server values
-        const displayBets = Object.fromEntries(msg.players.map((p) => [p.name, p.current_bet]))
+        // Sync displayBets + displayChips from authoritative server values
+        const displayBets  = Object.fromEntries(msg.players.map((p) => [p.name, p.current_bet]))
+        const displayChips = Object.fromEntries(msg.players.map((p) => [p.name, p.chips]))
         // potBase = pot excluding the current-street bets already in it.
         // This lets PotDisplay show a live pot: potBase + sum(displayBets).
         const sumCurrentBets = msg.players.reduce((s, p) => s + p.current_bet, 0)
@@ -197,6 +195,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           bufferedTableState: null,
           currentRoundActions: {},
           displayBets,
+          displayChips,
           potBase,
           // Clear pendingNewHand when table state is applied directly —
           // this unblocks the ActionPanel for hand #1 (no prior lastResult).
@@ -252,7 +251,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
           pendingAction: msg,
           thinkingPlayer,
           thinkingPlayerName,
-          timeRemaining: (roomConfig && roomConfig.time_bank > 0) ? roomConfig.time_bank : null,
         })
         break
       }
@@ -281,29 +279,40 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const label = parseActionLabel(msg.text)
         const { text, player } = msg
         set((s) => {
-          // Parse bet amounts to keep displayBets in sync without waiting for TABLE_STATE.
-          // "posts ... X"  → absolute (blind posted)
-          // "calls X"      → incremental (add to existing bet)
-          // "raises to X"  → absolute total this round
-          // "goes all-in"  → mark as non-zero so badge shows; TABLE_STATE will correct it
-          let displayBets = s.displayBets
+          // Parse bet amounts to keep displayBets + displayChips in sync
+          // without waiting for TABLE_STATE.
+          // "posts ... X"  → absolute blind posted
+          // "calls X"      → incremental amount added
+          // "raises to X"  → absolute total bet this round
+          // "goes all-in"  → all remaining chips committed
+          let displayBets  = s.displayBets
+          let displayChips = s.displayChips
           const postsMatch  = text.match(/^posts .+ (\d+)$/)
           const callsMatch  = text.match(/^calls (\d+)$/)
           const raisesMatch = text.match(/^raises to (\d+)$/)
+
           if (postsMatch) {
-            displayBets = { ...displayBets, [player]: parseInt(postsMatch[1], 10) }
+            const amt = parseInt(postsMatch[1], 10)
+            displayBets  = { ...displayBets,  [player]: amt }
+            displayChips = { ...displayChips, [player]: Math.max(0, (displayChips[player] ?? 0) - amt) }
           } else if (callsMatch) {
+            const amt  = parseInt(callsMatch[1], 10)
             const prev = displayBets[player] ?? 0
-            displayBets = { ...displayBets, [player]: prev + parseInt(callsMatch[1], 10) }
+            displayBets  = { ...displayBets,  [player]: prev + amt }
+            displayChips = { ...displayChips, [player]: Math.max(0, (displayChips[player] ?? 0) - amt) }
           } else if (raisesMatch) {
-            displayBets = { ...displayBets, [player]: parseInt(raisesMatch[1], 10) }
+            const newTotal   = parseInt(raisesMatch[1], 10)
+            const prev       = displayBets[player] ?? 0
+            const additional = Math.max(0, newTotal - prev)
+            displayBets  = { ...displayBets,  [player]: newTotal }
+            displayChips = { ...displayChips, [player]: Math.max(0, (displayChips[player] ?? 0) - additional) }
           } else if (text === 'goes all-in') {
-            // Total all-in = remaining chips + what they've already bet this round
-            const p = s.players.find((pl) => pl.name === player)
-            const alreadyBet = displayBets[player] ?? 0
-            const allInTotal = p ? p.chips + alreadyBet : alreadyBet || 1
-            displayBets = { ...displayBets, [player]: allInTotal }
+            const remaining = displayChips[player] ?? 0
+            const prevBet   = displayBets[player] ?? 0
+            displayBets  = { ...displayBets,  [player]: remaining + prevBet }
+            displayChips = { ...displayChips, [player]: 0 }
           }
+
           return {
             log: [...s.log, { id: _logId++, player, text }],
             currentRoundActions: label
@@ -311,6 +320,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
               : s.currentRoundActions,
             thinkingPlayer: null,
             displayBets,
+            displayChips,
           }
         })
         break
@@ -339,6 +349,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           pendingNewHand: msg,
           thinkingPlayer: null,
           displayBets: {},
+          displayChips: {},
           log: [
             ...s.log,
             { id: _logId++, player: '—', text: `Hand #${msg.hand_num} begins` },
@@ -374,10 +385,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       case 'PLAYER_LEFT':
         get().removeRoomPlayer(msg.player_id)
-        break
-
-      case 'TIME_WARNING':
-        set({ timeRemaining: msg.seconds_remaining })
         break
 
       case 'BOT_THINKING':

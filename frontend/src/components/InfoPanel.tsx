@@ -11,7 +11,6 @@ export default function InfoPanel() {
   const bigBlind = roomConfig?.big_blind ?? 0
   const smallBlind = bigBlind / 2
   const startingChips = roomConfig?.starting_chips ?? 0
-  const timeBank = roomConfig?.time_bank ?? 0
   const botStrategy = roomConfig?.bot_strategy ?? '—'
   const totalSeats = roomConfig?.total_seats ?? 0
 
@@ -81,7 +80,6 @@ export default function InfoPanel() {
                   <Row label="Small blind" value={smallBlind} />
                   <Row label="Big blind" value={bigBlind} />
                   <Row label="Starting chips" value={startingChips} />
-                  <Row label="Time bank" value={timeBank > 0 ? `${timeBank}s` : 'Unlimited'} />
                   <Row label="Bot strategy" value={botStrategy} />
                   <Row label="Total seats" value={totalSeats} />
                 </div>

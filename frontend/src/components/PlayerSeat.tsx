@@ -12,6 +12,7 @@ interface Props {
   equity?: number | null
   actionLabel?: string | null
   compact?: boolean
+  chipOverride?: number
 }
 
 // Position badge colours
@@ -46,12 +47,13 @@ function actionToastColor(label: string): string {
   return 'text-gray-300'
 }
 
-export default function PlayerSeat({ player, dealDelays, positionLabel, actionLabel, compact = false }: Props) {
+export default function PlayerSeat({ player, dealDelays, positionLabel, actionLabel, compact = false, chipOverride }: Props) {
   const {
     showdown, pendingAction, dealRevision, started, lastResult,
     pendingNewHand, thinkingPlayer, thinkingPlayerName, roomConfig,
   } = useGameStore()
   const bigBlind = roomConfig?.big_blind ?? 20
+  const shownChips = chipOverride ?? player.chips
   const dealCtx = useDealContext()
 
   const handleRef = useCallback((el: HTMLDivElement | null) => {
@@ -165,7 +167,7 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
               </span>
             )}
             <span className="text-[#c9a84c] font-bold text-[10px] leading-none pb-0.5">
-              {player.chips}
+              {shownChips}
             </span>
           </div>
         </div>
@@ -233,13 +235,13 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
 
           {/* Chip count */}
           <span className="text-[#c9a84c] font-bold text-sm leading-none pb-0.5">
-            {player.chips}
+            {shownChips}
           </span>
         </div>
 
         {/* ── Chip stacks floating on table felt ─────────────────────────── */}
-        {!isBust && player.chips > 0 && (
-          <ChipStack chips={player.chips} bigBlind={bigBlind} maxStack={4} scale={0.82} />
+        {!isBust && shownChips > 0 && (
+          <ChipStack chips={shownChips} bigBlind={bigBlind} maxStack={4} scale={0.82} />
         )}
       </div>
     )
@@ -318,7 +320,7 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
         )}
 
         <span className="text-[#c9a84c] font-bold text-[10px] leading-none">
-          {player.chips}
+          {shownChips}
         </span>
       </div>
     )
@@ -395,13 +397,13 @@ export default function PlayerSeat({ player, dealDelays, positionLabel, actionLa
       )}
 
       {/* Chip stack inside panel */}
-      {player.status !== 'bust' && player.chips > 0 && (
-        <ChipStack chips={player.chips} bigBlind={bigBlind} maxStack={4} scale={0.88} />
+      {player.status !== 'bust' && shownChips > 0 && (
+        <ChipStack chips={shownChips} bigBlind={bigBlind} maxStack={4} scale={0.88} />
       )}
 
       {/* Chip count */}
       <span className="text-[#c9a84c] font-bold text-sm leading-none">
-        {player.chips}
+        {shownChips}
       </span>
     </div>
   )

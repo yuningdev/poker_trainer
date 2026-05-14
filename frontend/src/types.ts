@@ -115,7 +115,6 @@ export type ServerMessage =
   | RoomStateMsg
   | PlayerJoinedMsg
   | PlayerLeftMsg
-  | TimeWarningMsg
   | WelcomeMsg
   | BotThinkingMsg
 
@@ -164,14 +163,12 @@ export type RoomStateMsg = {
     total_seats: number
     big_blind: number
     starting_chips: number
-    time_bank: number
     bot_strategy: string
   }
 }
 
 export type PlayerJoinedMsg = { type: 'PLAYER_JOINED'; player_id: string; name: string }
 export type PlayerLeftMsg = { type: 'PLAYER_LEFT'; player_id: string }
-export type TimeWarningMsg = { type: 'TIME_WARNING'; player_id: string; seconds_remaining: number }
 export type WelcomeMsg = { type: 'WELCOME'; player_id: string; is_host: boolean }
 export type BotThinkingMsg = { type: 'BOT_THINKING'; player_name: string }
 
@@ -213,10 +210,10 @@ export interface GameState {
   roomStatus: 'waiting' | 'playing' | 'finished' | null
   hostId: string | null
   myPlayerId: string
-  timeRemaining: number | null
   isCurrentPlayerHost: boolean
   phaseChangeTick: number          // increments on each PHASE_CHANGE
   phaseChangeBets: Record<string, number>  // player name → current_bet snapshot at PHASE_CHANGE
   displayBets: Record<string, number>      // real-time bet accumulator updated from ACTION_LOG
   potBase: number                          // pot excluding current-street bets (for live pot calc)
+  displayChips: Record<string, number>     // real-time chip counts decremented from ACTION_LOG
 }

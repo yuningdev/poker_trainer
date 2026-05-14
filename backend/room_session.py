@@ -15,7 +15,7 @@ Key design points:
   - Reconnection: if a player_id is already registered, the new WebSocket
     replaces the old one without interrupting the game thread.
   - Disconnection during game: the slot is kept (status="playing") so the
-    player can reconnect; on their turn the time_bank auto-folds for them.
+    player can reconnect at any time.
 """
 
 from __future__ import annotations
@@ -193,16 +193,14 @@ class RoomSession:
             hp = WsHumanPlayer(
                 name=info["name"],
                 chips=self.config.starting_chips,
-                time_bank=self.config.time_bank,
-                on_time_warning=self._make_time_warning_callback(loop, pid),
             )
             # Per-player callback so ACTION_REQUIRED carries the correct player_id.
             hp.set_decision_callback(self._make_decision_callback(loop, pid))
             info["human_player"] = hp
             human_players.append(hp)
 
-        # Bots always think at least 3 seconds so the game feels realistic.
-        think_min, think_max = 3.0, 5.0
+        # Bots think 2–3 seconds so chip animations are visible.
+        think_min, think_max = 2.0, 3.0
 
         bot_count = self.config.total_seats - len(human_players)
         bots = [
@@ -329,27 +327,6 @@ class RoomSession:
 
         return callback
 
-    def _make_time_warning_callback(
-        self, loop: asyncio.AbstractEventLoop, player_id: str
-    ):
-        """
-        Returns a callback that emits TIME_WARNING events tagged with
-        *player_id* so the frontend can show a countdown to the right player.
-        """
-        def callback(seconds_remaining: int) -> None:
-            asyncio.run_coroutine_threadsafe(
-                self._event_queue.put(  # type: ignore[union-attr]
-                    {
-                        "type": "TIME_WARNING",
-                        "player_id": player_id,
-                        "seconds_remaining": seconds_remaining,
-                    }
-                ),
-                loop,
-            )
-
-        return callback
-
     # ── Room state snapshot ───────────────────────────────────────────────────
 
     def _room_state_msg(self) -> dict:
@@ -368,7 +345,6 @@ class RoomSession:
                 "total_seats": self.config.total_seats,
                 "big_blind": self.config.big_blind,
                 "starting_chips": self.config.starting_chips,
-                "time_bank": self.config.time_bank,
                 "bot_strategy": self.config.bot_strategy,
             },
         }

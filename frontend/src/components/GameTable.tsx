@@ -149,7 +149,7 @@ function BetBadge({ amount }: { amount: number }) {
 // ── Main component ───────────────────────────────────────────────────────────
 export default function GameTable({ onAction: _onAction }: Props) {
   const store = useGameStore()
-  const { players, dealerPosition, currentRoundActions, pendingNewHand, log, lastResult, dealRevision, roomConfig, phaseChangeTick, phaseChangeBets, displayBets } = store
+  const { players, dealerPosition, currentRoundActions, pendingNewHand, log, lastResult, dealRevision, roomConfig, phaseChangeTick, phaseChangeBets, displayBets, displayChips } = store
   const bigBlind = roomConfig?.big_blind ?? 20
   const n = players.length
   const dealerName = players[dealerPosition]?.name ?? ''
@@ -442,6 +442,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
                       positionLabel={positionLabels[humanEntry.seatIndex]}
                       actionLabel={currentRoundActions[humanEntry.player.name] ?? null}
                       compact={isLS}
+                      chipOverride={displayChips[humanEntry.player.name]}
                     />
                   </div>
                 )
@@ -463,6 +464,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
                       positionLabel={positionLabels[seatIndex]}
                       actionLabel={currentRoundActions[player.name] ?? null}
                       compact={isLS}
+                      chipOverride={displayChips[player.name]}
                     />
                   </div>
                 )

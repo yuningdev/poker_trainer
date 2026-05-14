@@ -50,7 +50,6 @@ async def create_room(body: dict) -> dict:
         total_seats:    int  — 2–9; human players + bot fill-ins
         big_blind:      int  — big blind amount
         starting_chips: int  — each player starts with this many chips
-        time_bank:      int  — seconds per decision (0 = unlimited)
         bot_strategy:   str  — "random" | "passive" | "aggressive"
 
     Response:
@@ -62,7 +61,6 @@ async def create_room(body: dict) -> dict:
         total_seats=int(body.get("total_seats", 6)),
         big_blind=int(body.get("big_blind", 20)),
         starting_chips=int(body.get("starting_chips", 1000)),
-        time_bank=int(body.get("time_bank", 30)),
         bot_strategy=str(body.get("bot_strategy", "random")),
     )
     room_id = room_manager.create_room(config, host_id)

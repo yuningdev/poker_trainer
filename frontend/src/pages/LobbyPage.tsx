@@ -11,7 +11,6 @@ export function LobbyPage() {
   const [totalSeats, setTotalSeats] = useState(6)
   const [bigBlind, setBigBlind] = useState(20)
   const [startingChips, setStartingChips] = useState(1000)
-  const [timeBank, setTimeBank] = useState(30)
   const [botStrategy, setBotStrategy] = useState('random')
   const [playerName, setPlayerName] = useState(
     localStorage.getItem('poker_player_name') || ''
@@ -37,7 +36,6 @@ export function LobbyPage() {
           total_seats: totalSeats,
           big_blind: bigBlind,
           starting_chips: startingChips,
-          time_bank: timeBank,
           bot_strategy: botStrategy,
         }),
       })
@@ -134,18 +132,6 @@ export function LobbyPage() {
                 >
                   {[500, 1000, 2000, 5000, 10000].map((n) => (
                     <option key={n} value={n}>{n.toLocaleString()}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm mb-1">Time Bank (sec)</label>
-                <select
-                  value={timeBank}
-                  onChange={(e) => setTimeBank(+e.target.value)}
-                  className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 border border-gray-700"
-                >
-                  {[0, 15, 20, 30, 45, 60].map((n) => (
-                    <option key={n} value={n}>{n === 0 ? 'Unlimited' : `${n}s`}</option>
                   ))}
                 </select>
               </div>

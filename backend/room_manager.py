@@ -25,7 +25,6 @@ class RoomConfig:
     total_seats: int       # 2–9 inclusive
     big_blind: int         # e.g. 20
     starting_chips: int    # e.g. 1000
-    time_bank: int         # seconds per decision; 0 = unlimited
     bot_strategy: str      # "aggressive" | "passive" | "random"
 
 

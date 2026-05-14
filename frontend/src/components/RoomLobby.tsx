@@ -106,12 +106,6 @@ export function RoomLobby({ onStart }: Props) {
             </p>
           </div>
           <div>
-            <span className="text-gray-500">Time Bank</span>
-            <p className="text-white font-medium">
-              {roomConfig?.time_bank === 0 ? 'Unlimited' : `${roomConfig?.time_bank}s`}
-            </p>
-          </div>
-          <div>
             <span className="text-gray-500">Bots</span>
             <p className="text-white font-medium">
               {botSeats} x {roomConfig?.bot_strategy}
