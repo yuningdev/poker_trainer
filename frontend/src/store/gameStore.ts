@@ -57,6 +57,7 @@ const initialState: GameState = {
   phaseChangeTick: 0,
   phaseChangeBets: {},
   displayBets: {},
+  potBase: 0,
   // Room state
   roomId: null,
   roomName: null,
@@ -180,6 +181,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const humanBust = msg.players.some((p) => p.is_human && p.status === 'bust')
         // Sync displayBets from authoritative server values
         const displayBets = Object.fromEntries(msg.players.map((p) => [p.name, p.current_bet]))
+        // potBase = pot excluding the current-street bets already in it.
+        // This lets PotDisplay show a live pot: potBase + sum(displayBets).
+        const sumCurrentBets = msg.players.reduce((s, p) => s + p.current_bet, 0)
+        const potBase = msg.pot - sumCurrentBets
         set({
           started: true,
           phase: msg.phase as Phase,
@@ -192,6 +197,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           bufferedTableState: null,
           currentRoundActions: {},
           displayBets,
+          potBase,
           // Clear pendingNewHand when table state is applied directly —
           // this unblocks the ActionPanel for hand #1 (no prior lastResult).
           pendingNewHand: null,
@@ -252,18 +258,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
 
       case 'PHASE_CHANGE':
-        set((s) => ({
-          // Keep showdown alive while the hand result modal is visible —
-          // the next hand's PRE_FLOP PHASE_CHANGE arrives before the host
-          // clicks "Next Hand", which would wipe out the winner's cards.
-          showdown: s.lastResult !== null ? s.showdown : null,
-          currentRoundActions: {},
-          phaseChangeTick: s.phaseChangeTick + 1,
-          // Snapshot displayBets (real-time accumulator) for the animation,
-          // then reset it so the bet area clears for the new street.
-          phaseChangeBets: { ...s.displayBets },
-          displayBets: {},
-        }))
+        set((s) => {
+          const mergingSum = Object.values(s.displayBets).reduce((a, b) => a + b, 0)
+          return {
+            // Keep showdown alive while the hand result modal is visible —
+            // the next hand's PRE_FLOP PHASE_CHANGE arrives before the host
+            // clicks "Next Hand", which would wipe out the winner's cards.
+            showdown: s.lastResult !== null ? s.showdown : null,
+            currentRoundActions: {},
+            phaseChangeTick: s.phaseChangeTick + 1,
+            // Snapshot displayBets for the animation, then reset for the new street.
+            phaseChangeBets: { ...s.displayBets },
+            displayBets: {},
+            // Accumulate the merged bets into potBase so live pot stays correct
+            // before the next TABLE_STATE arrives.
+            potBase: s.potBase + mergingSum,
+          }
+        })
         break
 
       case 'ACTION_LOG': {
@@ -287,8 +298,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
           } else if (raisesMatch) {
             displayBets = { ...displayBets, [player]: parseInt(raisesMatch[1], 10) }
           } else if (text === 'goes all-in') {
-            // Amount unknown until TABLE_STATE; use existing or 1 as non-zero sentinel
-            displayBets = { ...displayBets, [player]: displayBets[player] ?? 1 }
+            // Total all-in = remaining chips + what they've already bet this round
+            const p = s.players.find((pl) => pl.name === player)
+            const alreadyBet = displayBets[player] ?? 0
+            const allInTotal = p ? p.chips + alreadyBet : alreadyBet || 1
+            displayBets = { ...displayBets, [player]: allInTotal }
           }
           return {
             log: [...s.log, { id: _logId++, player, text }],

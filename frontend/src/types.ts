@@ -218,4 +218,5 @@ export interface GameState {
   phaseChangeTick: number          // increments on each PHASE_CHANGE
   phaseChangeBets: Record<string, number>  // player name → current_bet snapshot at PHASE_CHANGE
   displayBets: Record<string, number>      // real-time bet accumulator updated from ACTION_LOG
+  potBase: number                          // pot excluding current-street bets (for live pot calc)
 }

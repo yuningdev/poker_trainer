@@ -59,9 +59,23 @@ class AggressiveStrategy(BettingStrategy):
         # --- RAISE ---
         if self.can_raise(state):
             lo = state.min_raise * 2
-            hi = player.chips
+            # Cap raises at 4× the current minimum raise for realistic sizing.
+            # Only go all-in when short-stacked (< 15 BB effective).
+            big_blind = max(1, state.min_raise)
+            short_stack = player.chips <= big_blind * 15
+            hi = player.chips if short_stack else min(state.min_raise * 4, player.chips)
+
             if lo >= hi:
-                return Action.ALL_IN, hi
+                # All-in only when short-stacked; otherwise just call/check.
+                if short_stack:
+                    return Action.ALL_IN, player.chips
+                if self.can_check(state):
+                    return Action.CHECK, 0
+                amount = self.call_amount(state)
+                if amount >= player.chips:
+                    return Action.ALL_IN, player.chips
+                return Action.CALL, amount
+
             amount = random.randint(lo, hi)
             amount = self.clamp_raise(amount, player, state)
             if amount >= player.chips:
