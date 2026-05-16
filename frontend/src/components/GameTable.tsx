@@ -159,8 +159,8 @@ export default function GameTable({ onAction: _onAction }: Props) {
   // ── Landscape-aware oval radii ───────────────────────────────────────────────
   const RX  = isLS ? 0.42 : 0.44  // horizontal seat radius
   const RY  = isLS ? 0.26 : 0.40  // vertical seat radius
-  const BRX = isLS ? 0.30 : 0.33  // bet badge horizontal radius
-  const BRY = isLS ? 0.18 : 0.27  // bet badge vertical radius
+  const BRX = isLS ? 0.22 : 0.28  // bet badge horizontal radius
+  const BRY = isLS ? 0.13 : 0.18  // bet badge vertical radius
 
   const seatPos = (f: number) => ovalPosition(f, RX, RY)
   const betPos  = (f: number) => ovalPosition(f, BRX, BRY)

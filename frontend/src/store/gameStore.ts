@@ -52,6 +52,7 @@ const initialState: GameState = {
   currentRoundActions: {},
   pendingNewHand: null,
   bufferedTableState: null,
+  bufferedPendingAction: null,
   thinkingPlayer: null,
   thinkingPlayerName: null,
   phaseChangeTick: 0,
@@ -104,7 +105,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   clearPendingAction: () => set({ pendingAction: null }),
 
   flushNewHand: () => set((s) => {
-    if (!s.pendingNewHand) return {}  // already auto-flushed, no-op
+    if (!s.pendingNewHand) return {}
     const buffered = s.bufferedTableState
     const base = {
       showdown: null,
@@ -115,6 +116,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       thinkingPlayerName: null,
       pendingNewHand: null,
       bufferedTableState: null,
+      // Promote buffered ACTION_REQUIRED so the action panel appears right after
+      // the "Next Hand" click (instead of auto-flushing mid-modal).
+      pendingAction: s.bufferedPendingAction ?? null,
+      bufferedPendingAction: null,
     }
     if (buffered) {
       const humanBust = buffered.players.some((p) => p.is_human && p.status === 'bust')
@@ -205,8 +210,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
 
       case 'ACTION_REQUIRED': {
-        const { roomConfig, myPlayerId, pendingNewHand, bufferedTableState, dealRevision } = get()
-        // Always track which player is thinking (for seat animation)
+        const { myPlayerId, pendingNewHand } = get()
         const thinkingPlayer = msg.player_id ?? null
         const thinkingPlayerName = msg.player_name ?? null
         // In multiplayer, only activate the action panel for the player whose
@@ -216,46 +220,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
           set({ thinkingPlayer, thinkingPlayerName })
           break
         }
-        // If it's my turn but the hand result gate (pendingNewHand) is still
-        // set, auto-flush it now — bots acted before the host could click
-        // "Next Hand". Apply any buffered TABLE_STATE so the board is current.
-        let autoFlush: Partial<GameState> = {}
+        // If the hand result modal is still showing, buffer this action required.
+        // The host will apply it when they click "Next Hand".
         if (pendingNewHand !== null) {
-          autoFlush = {
-            showdown: null,
-            lastResult: null,
-            pendingNewHand: null,
-            bufferedTableState: null,
-            dealRevision: dealRevision + 1,
-            currentRoundActions: {},
-          }
-          if (bufferedTableState) {
-            const humanBust = bufferedTableState.players.some(
-              (p) => p.is_human && p.status === 'bust'
-            )
-            autoFlush = {
-              ...autoFlush,
-              started: true,
-              phase: bufferedTableState.phase as Phase,
-              pot: bufferedTableState.pot,
-              communityCards: bufferedTableState.community_cards,
-              dealerPosition: bufferedTableState.dealer_position,
-              players: bufferedTableState.players,
-              humanBust,
-              humanEquity: bufferedTableState.human_equity ?? null,
-            }
-          }
+          set({ bufferedPendingAction: msg, thinkingPlayer, thinkingPlayerName })
+          break
         }
-        set({
-          ...autoFlush,
-          pendingAction: msg,
-          thinkingPlayer,
-          thinkingPlayerName,
-        })
+        set({ pendingAction: msg, thinkingPlayer, thinkingPlayerName })
         break
       }
 
       case 'PHASE_CHANGE':
+        // PRE_FLOP fires at hand start (not a street transition) — skip clearing
+        // displayBets so the blind-post badges (SB=10, BB=20) stay visible.
+        if (msg.phase === 'PRE_FLOP') break
         set((s) => {
           const mergingSum = Object.values(s.displayBets).reduce((a, b) => a + b, 0)
           return {
