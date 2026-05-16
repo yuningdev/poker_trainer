@@ -30,7 +30,10 @@ export default function CommunityCards() {
           const isNew = card !== undefined && i >= prevCount
           // Stagger within the newly revealed batch (0, 130, 260 ms for Flop)
           const delay = isNew ? (i - prevCount) * 130 : undefined
-          // Always render all 5 slots; dealt cards show face-up, undealt show face-down
+          // Hide placeholder slots during PRE_FLOP (no community cards yet).
+          // Once any card is dealt (FLOP+), show face-down placeholders for
+          // unrevealed slots so the 5-card board shape is always visible.
+          if (!card && communityCards.length === 0) return null
           return (
             <Card
               key={card ? `${card.rank}-${card.suit}` : `empty-${i}`}

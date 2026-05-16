@@ -349,7 +349,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
           pendingNewHand: msg,
           thinkingPlayer: null,
           displayBets: {},
-          displayChips: {},
+          // displayChips intentionally NOT reset here — keep previous hand's
+          // values so blind-posting ACTION_LOGs can subtract from the correct
+          // starting stack while the next TABLE_STATE is still buffered.
           log: [
             ...s.log,
             { id: _logId++, player: '—', text: `Hand #${msg.hand_num} begins` },
