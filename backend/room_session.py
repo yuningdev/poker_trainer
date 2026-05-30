@@ -33,7 +33,7 @@ from poker_trainer.players.player_factory import PlayerFactory
 from poker_trainer.engine.dealer import Dealer
 from poker_trainer.engine.game import Game
 from poker_trainer.engine.table import Table
-from poker_trainer.utils.constants import Action
+from backend.constants import ACTION_MAP
 from backend.serializer import serialize_action_required
 from backend.ws_renderer import WsRenderer
 
@@ -41,14 +41,6 @@ if TYPE_CHECKING:
     from backend.room_manager import RoomConfig
 
 logger = logging.getLogger(__name__)
-
-ACTION_MAP: dict[str, Action] = {
-    "fold":   Action.FOLD,
-    "check":  Action.CHECK,
-    "call":   Action.CALL,
-    "raise":  Action.RAISE,
-    "all_in": Action.ALL_IN,
-}
 
 
 class RoomSession:

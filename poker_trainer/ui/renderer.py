@@ -12,6 +12,7 @@ Card display uses colored suit symbols:
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List
 
 from rich.console import Console
@@ -46,11 +47,14 @@ def _hand_text(cards: List[Card]) -> Text:
     return t
 
 
-class Renderer:
+class Renderer(ABC):
     """
-    Renders game state to the terminal.
+    Abstract base class for all game renderers.
 
-    All methods are idempotent: calling them twice prints twice.
+    Subclasses must implement the core show_* methods.  The terminal
+    implementation (this file) uses Rich; WsRenderer emits JSON events.
+
+    All methods are idempotent: calling them twice renders twice.
     No state is stored between calls.
     """
 
@@ -58,6 +62,7 @@ class Renderer:
     # Hand-level display
     # ------------------------------------------------------------------
 
+    @abstractmethod
     def show_table(self, table: "Table", viewing_player: "BasePlayer") -> None:
         """
         Print the full table view for *viewing_player*'s turn:
@@ -125,14 +130,17 @@ class Renderer:
                 )
             )
 
+    @abstractmethod
     def show_phase_header(self, phase_name: str) -> None:
         """Print a section divider for a new phase."""
         console.rule(f"[bold cyan]{phase_name}[/bold cyan]")
 
+    @abstractmethod
     def show_action(self, player_name: str, action_str: str) -> None:
         """Print what a player did."""
         console.print(f"  [bold]{player_name}[/bold]: {action_str}")
 
+    @abstractmethod
     def show_hand_result(
         self,
         winner_name: str,
@@ -146,10 +154,9 @@ class Renderer:
             f"with [bold]{hand_description}[/bold]!"
         )
 
+    @abstractmethod
     def show_showdown(self, players: List["BasePlayer"], community: List[Card]) -> None:
-        """
-        Reveal all active players' hole cards at showdown.
-        """
+        """Reveal all active players' hole cards at showdown."""
         console.rule("[bold magenta]Showdown[/bold magenta]")
         for player in players:
             if player.is_active and player.hole_cards:
@@ -157,10 +164,12 @@ class Renderer:
                 console.print(f"  [bold]{player.name}[/bold]: ", end="")
                 console.print(hole_text)
 
+    @abstractmethod
     def show_bust(self, player_name: str) -> None:
         """Announce a player has been eliminated."""
         console.print(f"\n  [red]{player_name} has been eliminated![/red]")
 
+    @abstractmethod
     def show_game_over(self, winner_name: str, chips: int) -> None:
         """Announce the final game winner."""
         console.print()
@@ -173,16 +182,18 @@ class Renderer:
             )
         )
 
+    @abstractmethod
     def show_hand_separator(self, hand_num: int) -> None:
         """Print a visual separator between hands."""
         console.print()
         console.rule(f"[dim]Hand #{hand_num}[/dim]")
         console.print()
 
+    @abstractmethod
     def show_message(self, msg: str) -> None:
         """Print an informational message."""
         console.print(f"  {msg}")
 
     def show_bot_thinking(self, player_name: str) -> None:
-        """Called before a bot player decides. Terminal renderer is a no-op."""
+        """Called before a bot player decides. Default is a no-op."""
         pass
