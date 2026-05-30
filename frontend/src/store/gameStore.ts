@@ -233,7 +233,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       case 'PHASE_CHANGE':
         // PRE_FLOP fires at hand start (not a street transition) — skip clearing
         // displayBets so the blind-post badges (SB=10, BB=20) stay visible.
-        if (msg.phase === 'PRE_FLOP') break
+        // "Pre-Flop" is the legacy casing the backend emits; guard both forms.
+        if (msg.phase === 'PRE_FLOP' || msg.phase === 'Pre-Flop') break
         set((s) => {
           const mergingSum = Object.values(s.displayBets).reduce((a, b) => a + b, 0)
           return {

@@ -59,6 +59,7 @@ class WsRenderer(Renderer):
         phase_map = {
             "PRE": "PRE_FLOP",
             "PRE-FLOP": "PRE_FLOP",
+            "PRE_FLOP": "PRE_FLOP",
             "FLOP": "FLOP",
             "TURN": "TURN",
             "RIVER": "RIVER",
