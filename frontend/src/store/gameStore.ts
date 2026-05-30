@@ -123,11 +123,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     if (buffered) {
       const humanBust = buffered.players.some((p) => p.is_human && p.status === 'bust')
+      const displayBets  = Object.fromEntries(buffered.players.map((p) => [p.name, p.current_bet]))
+      const displayChips = Object.fromEntries(buffered.players.map((p) => [p.name, p.chips]))
+      const sumCurrentBets = buffered.players.reduce((acc, p) => acc + p.current_bet, 0)
+      const potBase = buffered.pot - sumCurrentBets
       return {
         ...base,
         started: true,
         phase: buffered.phase as Phase,
         pot: buffered.pot,
+        potBase,
+        displayBets,
+        displayChips,
         communityCards: buffered.community_cards,
         dealerPosition: buffered.dealer_position,
         players: buffered.players,
