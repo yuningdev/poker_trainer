@@ -113,6 +113,7 @@ class GameSession:
             )
 
         human.set_decision_callback(on_decision_needed)
+        human.set_as_next_hand_gate()
         self._human_player = human
 
         bots = [
@@ -162,6 +163,9 @@ class GameSession:
                     self._human_player.submit_action(action, amount)
                 else:
                     await self._send_error(f"Unknown action: {action_str!r}")
+
+            elif msg_type == "NEXT_HAND" and self._human_player is not None:
+                self._human_player.confirm_next_hand()
 
             elif msg_type == "START_GAME":
                 # Restart not supported mid-game; inform the client.

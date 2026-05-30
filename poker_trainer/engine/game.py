@@ -78,6 +78,7 @@ class Game:
         while not self._is_game_over():
             self._hand_num += 1
             self.renderer.show_hand_separator(self._hand_num)
+            self._wait_between_hands()
             self._play_hand()
             self._remove_bust_players()
 
@@ -85,6 +86,19 @@ class Game:
         if winners:
             w = winners[0]
             self.renderer.show_game_over(w.name, w.chips)
+
+    # ------------------------------------------------------------------
+    # Between-hand gate
+    # ------------------------------------------------------------------
+
+    def _wait_between_hands(self) -> None:
+        """Block until human gate player confirms. Skips hand 1 (no prior result)."""
+        if self._hand_num <= 1:
+            return
+        for player in self.table.seats:
+            if hasattr(player, "wait_for_next_hand"):
+                player.wait_for_next_hand()
+                return
 
     # ------------------------------------------------------------------
     # Hand template (Template Method pattern)

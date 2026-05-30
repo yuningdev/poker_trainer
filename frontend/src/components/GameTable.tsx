@@ -13,6 +13,7 @@ import type { ActionType, PlayerData } from '../types'
 
 interface Props {
   onAction: (action: ActionType, amount?: number) => void
+  onNextHand: () => void
 }
 
 const DEAL_INTERVAL = 130 // ms between each card dealt
@@ -147,7 +148,7 @@ function BetBadge({ amount }: { amount: number }) {
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
-export default function GameTable({ onAction: _onAction }: Props) {
+export default function GameTable({ onAction: _onAction, onNextHand }: Props) {
   const store = useGameStore()
   const { players, dealerPosition, currentRoundActions, pendingNewHand, log, lastResult, dealRevision, roomConfig, phaseChangeTick, phaseChangeBets, displayBets, displayChips } = store
   const bigBlind = roomConfig?.big_blind ?? 20
@@ -504,7 +505,7 @@ export default function GameTable({ onAction: _onAction }: Props) {
       </div>
 
       {/* Hand result modal */}
-      <HandResultModal onFlush={() => { store.flushNewHand(); setAnimating(false) }} />
+      <HandResultModal onFlush={() => { store.flushNewHand(); setAnimating(false); onNextHand() }} />
 
       {/* Info panel */}
       <InfoPanel />

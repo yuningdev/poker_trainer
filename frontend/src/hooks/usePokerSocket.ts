@@ -51,5 +51,9 @@ export function usePokerSocket(roomId: string | null) {
     ws.current?.send(JSON.stringify({ type: 'PLAYER_ACTION', action, amount }))
   }, [])
 
-  return { startGame, sendAction }
+  const sendNextHand = useCallback(() => {
+    ws.current?.send(JSON.stringify({ type: 'NEXT_HAND' }))
+  }, [])
+
+  return { startGame, sendAction, sendNextHand }
 }

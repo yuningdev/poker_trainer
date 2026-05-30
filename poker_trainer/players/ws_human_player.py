@@ -55,6 +55,11 @@ class WsHumanPlayer(BasePlayer):
         # Called from the game thread before blocking; must be thread-safe.
         self._on_decision_needed: Optional[Callable] = None
 
+        # Next-hand gate: blocks game thread between hands until the host
+        # confirms via confirm_next_hand().
+        self._next_hand_event = threading.Event()
+        self._is_next_hand_gate: bool = False
+
     @property
     def is_human(self) -> bool:
         return True
@@ -99,9 +104,25 @@ class WsHumanPlayer(BasePlayer):
         self._pending_action = (action, amount)
         self._event.set()
 
+    def set_as_next_hand_gate(self) -> None:
+        """Designate this player as the one who gates between hands."""
+        self._is_next_hand_gate = True
+
+    def wait_for_next_hand(self) -> None:
+        """Block game thread until confirm_next_hand() is called. No-op if not gate."""
+        if not self._is_next_hand_gate:
+            return
+        self._next_hand_event.clear()
+        self._next_hand_event.wait()
+
+    def confirm_next_hand(self) -> None:
+        """Called from asyncio thread (WebSocket handler). Unblocks game thread."""
+        self._next_hand_event.set()
+
     def force_fold(self) -> None:
         """
         Force a FOLD action — used by GameSession.cancel() on disconnect
         to prevent the game thread from blocking forever.
         """
         self.submit_action(Action.FOLD, 0)
+        self._next_hand_event.set()  # unblock if waiting between hands
