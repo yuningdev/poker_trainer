@@ -49,7 +49,6 @@ export function usePokerSocket(roomId: string | null) {
 
   const sendAction = useCallback((action: ActionType, amount = 0) => {
     ws.current?.send(JSON.stringify({ type: 'PLAYER_ACTION', action, amount }))
-    useGameStore.getState().setTimeRemaining(null)
   }, [])
 
   return { startGame, sendAction }
