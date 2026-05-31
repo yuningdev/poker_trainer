@@ -15,8 +15,6 @@ import random
 import sys
 from typing import List, Dict, Tuple, Optional
 
-sys.path.insert(0, "/Users/rickchang/Desktop/new life/poker/poker_trainer")
-
 from poker_trainer.engine.game import Game
 from poker_trainer.engine.table import Table
 from poker_trainer.engine.dealer import Dealer

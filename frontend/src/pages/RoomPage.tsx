@@ -54,7 +54,7 @@ export function RoomPage() {
 
   // Hook is called unconditionally; pass null until the user has entered a name
   // so the WebSocket only connects after we have a real name to send.
-  const { startGame, sendAction } = usePokerSocket(hasName ? paramRoomId ?? null : null)
+  const { startGame, sendAction, sendNextHand } = usePokerSocket(hasName ? paramRoomId ?? null : null)
   const addRecord = useHistoryStore((s) => s.addRecord)
   const [showHistory, setShowHistory] = useState(false)
 
@@ -132,7 +132,7 @@ export function RoomPage() {
   // roomStatus === 'playing' | 'finished'
   return (
     <>
-      <GameTable onAction={sendAction} />
+      <GameTable onAction={sendAction} onNextHand={sendNextHand} />
       <ActionPanel onAction={sendAction} />
       <HandResultOverlay onPlayAgain={handlePlayAgain} onViewHistory={handleViewHistory} />
       <button

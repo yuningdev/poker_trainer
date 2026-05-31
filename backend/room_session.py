@@ -33,7 +33,7 @@ from poker_trainer.players.player_factory import PlayerFactory
 from poker_trainer.engine.dealer import Dealer
 from poker_trainer.engine.game import Game
 from poker_trainer.engine.table import Table
-from poker_trainer.utils.constants import Action
+from backend.constants import ACTION_MAP
 from backend.serializer import serialize_action_required
 from backend.ws_renderer import WsRenderer
 
@@ -41,14 +41,6 @@ if TYPE_CHECKING:
     from backend.room_manager import RoomConfig
 
 logger = logging.getLogger(__name__)
-
-ACTION_MAP: dict[str, Action] = {
-    "fold":   Action.FOLD,
-    "check":  Action.CHECK,
-    "call":   Action.CALL,
-    "raise":  Action.RAISE,
-    "all_in": Action.ALL_IN,
-}
 
 
 class RoomSession:
@@ -174,6 +166,13 @@ class RoomSession:
             else:
                 await self._send_error(player_id, f"Unknown action: {action_str!r}")
 
+        elif msg_type == "NEXT_HAND":
+            if player_id != self.host_id:
+                return  # only host can advance
+            info = self.ws_players.get(self.host_id)
+            if info and info.get("human_player"):
+                info["human_player"].confirm_next_hand()
+
         else:
             logger.debug("Room %s: unhandled message type %r", self.room_id, msg_type)
 
@@ -196,6 +195,8 @@ class RoomSession:
             )
             # Per-player callback so ACTION_REQUIRED carries the correct player_id.
             hp.set_decision_callback(self._make_decision_callback(loop, pid))
+            if pid == self.host_id:
+                hp.set_as_next_hand_gate()
             info["human_player"] = hp
             human_players.append(hp)
 

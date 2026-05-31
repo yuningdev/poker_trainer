@@ -28,19 +28,11 @@ from poker_trainer.engine.game import Game
 from poker_trainer.engine.table import Table
 from poker_trainer.players.player_factory import PlayerFactory
 from poker_trainer.players.ws_human_player import WsHumanPlayer
-from poker_trainer.utils.constants import Action
+from backend.constants import ACTION_MAP
 from backend.serializer import serialize_action_required
 from backend.ws_renderer import WsRenderer
 
 logger = logging.getLogger(__name__)
-
-ACTION_MAP: dict[str, Action] = {
-    "fold":   Action.FOLD,
-    "check":  Action.CHECK,
-    "call":   Action.CALL,
-    "raise":  Action.RAISE,
-    "all_in": Action.ALL_IN,
-}
 
 
 class GameSession:
@@ -55,40 +47,32 @@ class GameSession:
     # ── Public ───────────────────────────────────────────────────────────────
 
     async def run(self) -> None:
-        """Entry point called by the WebSocket endpoint. Loops to support multiple games."""
+        """Entry point called by the WebSocket endpoint. Runs a single game."""
         loop = asyncio.get_running_loop()
 
-        while not self._cancelled:
-            config = await self._wait_for_start()
-            if config is None:
-                return
+        config = await self._wait_for_start()
+        if config is None:
+            return
 
-            # Reset per-game state so old events don't leak into the new game.
-            self._event_queue = asyncio.Queue()
+        game = self._build_game(config, loop)
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        game_future = loop.run_in_executor(executor, game.run)
 
-            game = self._build_game(config, loop)
-            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-            game_future = loop.run_in_executor(executor, game.run)
+        sender   = asyncio.create_task(self._pump_events())
+        receiver = asyncio.create_task(self._receive_actions())
 
-            sender   = asyncio.create_task(self._pump_events())
-            receiver = asyncio.create_task(self._receive_actions())
-
-            try:
-                await asyncio.gather(game_future, return_exceptions=True)
-                # Yield to the event loop so any run_coroutine_threadsafe callbacks
-                # (e.g. GAME_OVER) have a chance to put their events in the queue,
-                # and sender can drain them to the browser before we cancel it.
-                await asyncio.sleep(0)
-                await asyncio.sleep(0)
-            finally:
-                sender.cancel()
-                receiver.cancel()
-                await asyncio.gather(sender, receiver, return_exceptions=True)
-                executor.shutdown(wait=False)
-
-            if self._cancelled:
-                return
-            # Loop back and wait for the next START_GAME.
+        try:
+            await asyncio.gather(game_future, return_exceptions=True)
+            # Yield to the event loop so any run_coroutine_threadsafe callbacks
+            # (e.g. GAME_OVER) have a chance to put their events in the queue,
+            # and sender can drain them to the browser before we cancel it.
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+        finally:
+            sender.cancel()
+            receiver.cancel()
+            await asyncio.gather(sender, receiver, return_exceptions=True)
+            executor.shutdown(wait=False)
 
     def cancel(self) -> None:
         """Called on WebSocket disconnect to unblock the game thread."""
@@ -129,6 +113,7 @@ class GameSession:
             )
 
         human.set_decision_callback(on_decision_needed)
+        human.set_as_next_hand_gate()
         self._human_player = human
 
         bots = [
@@ -178,6 +163,9 @@ class GameSession:
                     self._human_player.submit_action(action, amount)
                 else:
                     await self._send_error(f"Unknown action: {action_str!r}")
+
+            elif msg_type == "NEXT_HAND" and self._human_player is not None:
+                self._human_player.confirm_next_hand()
 
             elif msg_type == "START_GAME":
                 # Restart not supported mid-game; inform the client.

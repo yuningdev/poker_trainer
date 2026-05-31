@@ -14,6 +14,20 @@ from poker_trainer.players.player_factory import PlayerFactory
 from poker_trainer.ui.renderer import Renderer
 
 
+class NullRenderer(Renderer):
+    """Minimal no-op renderer for testing purposes."""
+
+    def show_table(self, table, viewing_player): pass
+    def show_phase_header(self, phase_name): pass
+    def show_action(self, player_name, action_str): pass
+    def show_hand_result(self, winner_name, hand_description, amount): pass
+    def show_showdown(self, players, community): pass
+    def show_bust(self, player_name): pass
+    def show_game_over(self, winner_name, chips): pass
+    def show_hand_separator(self, hand_num): pass
+    def show_message(self, msg): pass
+
+
 def make_bot_game(chips: int = 500):
     players = [
         PlayerFactory.create("aggressive", "Alice", chips),
@@ -22,7 +36,7 @@ def make_bot_game(chips: int = 500):
     ]
     table = Table(players, small_blind=10, big_blind=20)
     dealer = Dealer()
-    renderer = Renderer()
+    renderer = NullRenderer()
     game = Game(table, dealer, renderer)
     return game, players
 
@@ -134,11 +148,8 @@ class TestBustPlayerExclusion:
 
 
 class TestPlayerFactory:
-    def test_all_types_created(self):
-        from poker_trainer.players.human_player import HumanPlayer
+    def test_all_bot_types_created(self):
         from poker_trainer.players.bot_player import BotPlayer
-        human = PlayerFactory.create("human", "P1", 500)
-        assert isinstance(human, HumanPlayer)
         for t in ("random", "passive", "aggressive"):
             bot = PlayerFactory.create(t, "P", 500)
             assert isinstance(bot, BotPlayer)

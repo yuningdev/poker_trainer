@@ -3,7 +3,7 @@ RoomManager — in-memory registry of all active poker rooms.
 
 A room is created via POST /api/rooms and identified by a short uppercase
 hex ID (e.g. "A3F9C2").  The manager holds RoomSession objects (not raw
-RoomInfo) so that the WebSocket endpoint can call session methods directly.
+snapshots) so that the WebSocket endpoint can call session methods directly.
 
 Singleton usage:
     from backend.room_manager import room_manager, RoomConfig
@@ -11,10 +11,9 @@ Singleton usage:
 
 from __future__ import annotations
 
-import time
 import uuid
-from dataclasses import dataclass, field
-from typing import Literal, Optional
+from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -26,21 +25,6 @@ class RoomConfig:
     big_blind: int         # e.g. 20
     starting_chips: int    # e.g. 1000
     bot_strategy: str      # "aggressive" | "passive" | "random"
-
-
-@dataclass
-class RoomInfo:
-    """
-    Lightweight snapshot of a room — useful for REST responses.
-    The live state lives in RoomSession; this is only used for serialisation.
-    """
-
-    room_id: str
-    config: RoomConfig
-    host_id: str
-    players: dict           # player_id → {"name": str, "seat": int}
-    status: Literal["waiting", "playing", "finished"]
-    created_at: float = field(default_factory=time.time)
 
 
 class RoomManager:
@@ -73,13 +57,6 @@ class RoomManager:
     def remove_room(self, room_id: str) -> None:
         """Delete a room from the registry (e.g. after GAME_OVER)."""
         self._rooms.pop(room_id.upper(), None)
-
-    def list_rooms(self) -> list[dict]:
-        """Return a summary list for the lobby (if ever needed)."""
-        result = []
-        for rid, session in self._rooms.items():
-            result.append(session._room_state_msg())  # type: ignore[attr-defined]
-        return result
 
 
 # Module-level singleton — import this everywhere.

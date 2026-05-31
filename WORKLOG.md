@@ -2,6 +2,23 @@
 
 ---
 
+## 2026-05-31 — backend-cleanup
+
+**Branch:** `feature/2026-05-31`
+**Status:** ✅ All tests passed
+
+### What was done
+- Extracted duplicate `ACTION_MAP` from `session.py` and `room_session.py` into new `backend/constants.py`
+- Converted `poker_trainer/ui/renderer.py` to an ABC with `@abstractmethod` on all `show_*` methods; added `NullRenderer` to tests
+- Removed legacy terminal CLI: deleted `__main__.py`, `HumanPlayer`, `poker` entry point in `pyproject.toml`; moved `simulate.py` / `stress_test.py` to `scripts/`; trimmed `RoomManager` of unused `RoomInfo` dataclass and `list_rooms()`; simplified `GameSession.run()` (removed multi-game while-loop)
+
+### Test results
+- Frontend lint: ⚠️ pre-existing `cross-spawn` corruption in node_modules (unrelated to changes)
+- Frontend build (tsc): ✅
+- Backend pytest: ✅ 41 passed, 1 skipped
+
+---
+
 ## 2026-05-01 — multiplayer-rooms
 
 **Branch:** `multiplayer-rooms/2026-05-01`
