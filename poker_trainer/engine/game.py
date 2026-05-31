@@ -325,43 +325,45 @@ class Game:
             hand_results[player] = result
             self.renderer.show_message(f"  {player.name}: {result.display()}")
 
-        # Split into side pots, each with its own eligible players list.
-        # A side pot where only one player is eligible means that player's
-        # excess chips are returned automatically (they "win" uncontested).
+        # Distribute chips into `awarded`, handling side pots when a player
+        # is all-in for less than others have wagered.
+        awarded: Dict[BasePlayer, int] = {}
         side_pots = self.table.pot.calculate_side_pots()
 
         if not side_pots:
-            # Fallback: single undivided pot → best overall hand wins.
-            # Support split pot (chop) when hands are tied.
+            # Fallback: single undivided pot.
             total = self.table.pot.total
             distributed = self._split_pot_among_winners(
                 total, list(hand_results.keys()), hand_results
             )
-            for player, amount in distributed.items():
-                self.renderer.show_hand_result(
-                    player.name, hand_results[player].display(), amount
-                )
-            return
+            awarded = dict(distributed)
+        else:
+            # Award each side pot to the eligible player(s) with the best hand.
+            # A side pot where only one player is eligible means that player's
+            # excess chips are returned automatically (they "win" uncontested).
+            for pot_amount, eligible in side_pots:
+                contestants = [p for p in eligible if p.is_active and p in hand_results]
+                if not contestants:
+                    continue
+                distributed = self._split_pot_among_winners(pot_amount, contestants, hand_results)
+                for p, amt in distributed.items():
+                    awarded[p] = awarded.get(p, 0) + amt
 
-        # Award each side pot to the eligible player(s) with the best hand.
-        # Supports split pots within each side pot.
-        awarded: Dict[BasePlayer, int] = {}
-        for pot_amount, eligible in side_pots:
-            # Only consider active (non-folded) players who are eligible.
-            contestants = [p for p in eligible if p.is_active and p in hand_results]
-            if not contestants:
-                continue
-            distributed = self._split_pot_among_winners(pot_amount, contestants, hand_results)
-            for p, amt in distributed.items():
-                awarded[p] = awarded.get(p, 0) + amt
-
-        for player, total_won in awarded.items():
-            hand_desc = (
-                hand_results[player].display()
-                if player in hand_results
-                else "best hand"
-            )
-            self.renderer.show_hand_result(player.name, hand_desc, total_won)
+        # Emit ONE HAND_RESULT for the player with the best hand at showdown.
+        # In side-pot scenarios multiple players may receive chips, but the
+        # modal should highlight whoever actually *won* the hand (best hand),
+        # not whoever captured the largest excess side pot.
+        # Tiebreak: if two players share the best hand, prefer the one who
+        # received more chips (split-pot odd-chip rule already handled above).
+        showdown_winner = max(
+            hand_results,
+            key=lambda p: (hand_results[p], awarded.get(p, 0)),
+        )
+        self.renderer.show_hand_result(
+            showdown_winner.name,
+            hand_results[showdown_winner].display(),
+            awarded.get(showdown_winner, 0),
+        )
 
     def _split_pot_among_winners(
         self,

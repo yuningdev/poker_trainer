@@ -42,10 +42,12 @@ export default function HandResultModal({ onFlush }: Props) {
   // Detect bust: displayChips tracks real-time chip counts from ACTION_LOG.
   // If human's chips hit 0 this hand (before next TABLE_STATE is applied),
   // offer "Continue Watching" / "New Game" instead of the normal "Next Hand".
+  // Guard: if human won the hand they can't be bust — displayChips may
+  // temporarily read 0 while chips are still in the pot (all-in scenario).
   const humanChips = humanPlayer
     ? (displayChips[humanPlayer.name] ?? humanPlayer.chips)
     : 1
-  const humanJustBust = humanChips === 0
+  const humanJustBust = !humanIsWinner && humanChips === 0
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
